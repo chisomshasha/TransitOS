@@ -3,9 +3,9 @@
  */
 import type { Role } from '@/lib/types';
 
-export type TabId = 'home' | 'trips' | 'vehicles' | 'reports' | 'profile';
+export type TabId = 'home' | 'trips' | 'vehicles' | 'more' | 'reports' | 'profile';
 
-const ALL_TAB_IDS: TabId[] = ['home', 'trips', 'vehicles', 'reports', 'profile'];
+const ALL_TAB_IDS: TabId[] = ['home', 'trips', 'vehicles', 'more', 'reports', 'profile'];
 const ALL_ROLES: Role[] = [
   'super_admin', 'owner', 'general_manager', 'branch_manager',
   'operations_manager', 'fleet_manager', 'chief_accountant',
@@ -19,10 +19,10 @@ export const TABS_BY_ROLE: Record<Role, TabId[]> = {
   branch_manager: ALL_TAB_IDS,
   operations_manager: ALL_TAB_IDS,
   fleet_manager: ALL_TAB_IDS,
-  chief_accountant: ['home', 'reports', 'profile'],
-  branch_accountant: ['home', 'trips', 'reports', 'profile'],
-  driver: ['home', 'trips', 'profile'],
-  conductor: ['home', 'trips', 'profile'],
+  chief_accountant: ['home', 'more', 'reports', 'profile'],
+  branch_accountant: ['home', 'trips', 'more', 'reports', 'profile'],
+  driver: ['home', 'trips', 'more', 'profile'],
+  conductor: ['home', 'trips', 'more', 'profile'],
 };
 
 export const SCREEN_ACCESS: { prefix: string; roles: Role[] }[] = [

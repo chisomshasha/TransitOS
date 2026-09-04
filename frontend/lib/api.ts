@@ -295,7 +295,7 @@ export async function patchSingle<T, B = unknown>(path: string, body?: B): Promi
 export async function postAction<T>(path: string): Promise<T> {
   const resp = await api.post<SingleResponse<T>>(path);
   return resp.data.data;
-}patch
+}
 
 export async function postNoContent(path: string, body?: unknown): Promise<void> {
   await api.post(path, body);
@@ -307,6 +307,11 @@ export async function patchNoContent(path: string, body?: unknown): Promise<void
 
 export async function deleteNoContent(path: string): Promise<void> {
   await api.delete(path);
+}
+
+export async function postJson<T>(path: string, body?: unknown): Promise<T> {
+  const resp = await api.post<T>(path, body);
+  return (resp.data as any).data ?? resp.data;
 }
 
 export async function patchJson<T>(path: string, body: unknown): Promise<T> {

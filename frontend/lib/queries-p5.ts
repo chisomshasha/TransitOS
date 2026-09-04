@@ -97,4 +97,4 @@ export function useAdvanceTransfer(id: string) {
       qc.invalidateQueries({ queryKey: ['vehicles'] });
     },
   });
-}queries-p5.ts
+}

@@ -36,7 +36,7 @@ import {
   scheduleSilentRefresh,
   cancelSilentRefresh,
 } from '@/lib/api';
-import { queryClient } from '@/lib/query-client';
+import { queryClient } from '@/lib/queryClient';
 import type { SingleResponse, User } from '@/lib/types';
 
 interface AuthContextValue {

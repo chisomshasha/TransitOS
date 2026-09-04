@@ -45,10 +45,6 @@ export async function runSyncPull(): Promise<{ pulled: number; serverTs: string 
     last_sync_ts: lastSyncTs,
   });
 
-  const qc = (await import('@tanstack/react-query')).useQueryClient
-    ? null
-    : null; // placeholder; we use the global client below
-
   // Update the cache in-place for the entities we pulled
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { queryClient } = await import('@/lib/queryClient');
