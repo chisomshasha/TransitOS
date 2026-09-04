@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useRoutes } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -9,8 +9,7 @@ import { ArrowRight, MapPin, Route as RouteIcon } from 'lucide-react-native';
 import { formatNGN } from '@/lib/format';
 
 export default function RouteDetailScreen() {
-  const route = useRoute();
-  const id = (route.params as { id: string })?.id;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading } = useRoutes({ page: 1, page_size: 100 });
   const r = (data?.items ?? []).find((x) => x.id === id);
 
