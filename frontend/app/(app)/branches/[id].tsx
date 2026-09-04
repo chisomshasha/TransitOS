@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useBranches } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -8,8 +8,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Building2, MapPin, Phone, Mail } from 'lucide-react-native';
 
 export default function BranchDetailScreen() {
-  const route = useRoute();
-  const id = (route.params as { id: string })?.id;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading } = useBranches({ page: 1, page_size: 100 });
   const branch = (data?.items ?? []).find((b) => b.id === id);
 
