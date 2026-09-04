@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, TextInput, Alert } from 'react-native';
-import { useRoute, useRouter } from 'expo-router';
-import { Building2, Bus, CalendarDays, FileText, Fuel, Plus, QRCode, Share, Users, Wrench } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Building2, Bus, CalendarDays, FileText, Fuel, Plus, QrCode, Share, Users, Wrench } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import QRCode from 'react-native-qrcode-svg';
@@ -38,10 +38,9 @@ const DOC_TYPES = [
 const ALERT_DAYS = [7, 14, 30, 60, 90];
 
 export default function VehicleDetailScreen() {
-  const route = useRoute();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const id = (route.params as { id: string })?.id;
   const { data, isLoading } = useVehicles({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const docsQ = useVehicleDocuments(id);
@@ -201,7 +200,7 @@ export default function VehicleDetailScreen() {
       <View style={{ height: 14 }} />
       <View style={s.actionGrid}>
         <Pressable style={s.actionCard} onPress={() => setQrOpen(true)}>
-          <QRCode size={22} color={brand.navy} />
+          <QrCode size={22} color={brand.navy} />
           <Text style={s.actionLabel}>Show QR</Text>
         </Pressable>
         <Pressable style={s.actionCard} onPress={() => router.push('/maintenance' as never)}>

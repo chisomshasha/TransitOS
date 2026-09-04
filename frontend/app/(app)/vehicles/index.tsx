@@ -74,8 +74,8 @@ export default function VehiclesScreen() {
                 <View style={s.row}>
                   <View style={s.iconBox}><Bus size={18} color="#0E7490" /></View>
                   <View style={s.body}>
-                    <Text style={s.name}>{item.plate_number}</Text>
-                    <Text style={s.sub}>{item.model}</Text>
+                    <Text style={s.name}>{item.reg_number}</Text>
+                    <Text style={s.sub}>{item.type}</Text>
                     <View style={s.badges}>
                       <Badge
                         label={VEHICLE_STATUS_LABELS[item.status] ?? item.status}
