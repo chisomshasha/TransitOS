@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { UserCog, Mail, Phone, Building2, CreditCard, CalendarDays } from 'lucide-react-native';
 import { useBranches, useDrivers } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
@@ -8,8 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 
 export default function DriverDetailScreen() {
-  const route = useRoute();
-  const id = (route.params as { id: string })?.id;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading } = useDrivers({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const d = (data?.items ?? []).find((x) => x.id === id);
@@ -17,8 +16,8 @@ export default function DriverDetailScreen() {
   if (isLoading) return <View style={s.loading}><Spinner label="Loading driver…" /></View>;
   if (!d) return <View style={s.loading}><Text style={s.errorText}>Driver not found</Text></View>;
 
-  const branchName = d.user?.branch_id
-    ? branchesQ.data?.items.find((b) => b.id === d.user?.branch_id)?.name ?? '—'
+  const branchName = d.branch_id
+    ? branchesQ.data?.items.find((b) => b.id === d.branch_id)?.name ?? '—'
     : '—';
   const expiry = d.license_expiry ? new Date(d.license_expiry) : null;
 
@@ -28,8 +27,8 @@ export default function DriverDetailScreen() {
         <View style={s.header}>
           <View style={s.avatar}><UserCog size={24} color="#0E7490" /></View>
           <View style={{ flex: 1 }}>
-            <Text style={s.name}>{d.user?.full_name ?? 'Unnamed driver'}</Text>
-            <Text style={s.sub}>{d.user?.email ?? ''}</Text>
+            <Text style={s.name}>{d.full_name ?? 'Unnamed driver'}</Text>
+            <Text style={s.sub}>{d.email ?? ''}</Text>
           </View>
           <Badge
             label={d.status === 'active' ? 'active' : d.status}
@@ -44,8 +43,8 @@ export default function DriverDetailScreen() {
           value={expiry ? expiry.toLocaleDateString() : '—'}
         />
         <InfoRow icon={<UserCog size={14} color="#64748B" />} label="Years exp." value={String(d.years_experience ?? 0)} />
-        <InfoRow icon={<Mail size={14} color="#64748B" />} label="Email" value={d.user?.email ?? '—'} />
-        <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={d.user?.phone ?? '—'} />
+        <InfoRow icon={<Mail size={14} color="#64748B" />} label="Email" value={d.email ?? '—'} />
+        <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={d.phone ?? '—'} />
         <InfoRow icon={<Building2 size={14} color="#64748B" />} label="Branch" value={branchName} />
       </Card>
     </ScrollView>
