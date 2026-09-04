@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Wallet } from 'lucide-react-native';
 import { useCashUps, useCreateCashUp } from '@/lib/queries';
@@ -20,21 +20,12 @@ export function CashUpSection({ trip }: CashUpSectionProps) {
   const items = list.data?.items ?? [];
   const latest = items[0];
 
+  // Denomination counting is purely a client-side convenience for
+  // arriving at a cash total — the backend only stores a payment-method
+  // breakdown (method/amount), not per-denomination counts, so we don't
+  // try to reverse-populate these inputs from an existing cash-up.
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [coins, setCoins] = useState('');
-  const [expenses, setExpenses] = useState('');
-
-  useEffect(() => {
-    if (latest) {
-      const c: Record<number, string> = {};
-      (latest.denomination_counts ?? []).forEach((d) => {
-        c[d.denomination] = String(d.count);
-      });
-      setCounts(c);
-      setCoins(String(latest.coins_total ?? ''));
-      setExpenses(String(latest.expenses_total ?? ''));
-    }
-  }, [latest]);
 
   const counted = useMemo(() => {
     let total = 0;
@@ -43,9 +34,8 @@ export function CashUpSection({ trip }: CashUpSectionProps) {
       total += n * d;
     });
     total += parseFloat(coins || '0') || 0;
-    total -= parseFloat(expenses || '0') || 0;
     return total;
-  }, [counts, coins, expenses]);
+  }, [counts, coins]);
 
   const expected = trip.total_revenue ?? 0;
   const variance = counted - expected;
@@ -54,12 +44,10 @@ export function CashUpSection({ trip }: CashUpSectionProps) {
     try {
       await create.mutateAsync({
         trip_id: trip.id,
-        denomination_counts: DENOMS.map((d) => ({
-          denomination: d,
-          count: parseInt(counts[d] ?? '0', 10) || 0,
-        })),
-        coins_total: parseFloat(coins || '0') || 0,
-        expenses_total: parseFloat(expenses || '0') || 0,
+        conductor_id: trip.conductor_id,
+        branch_id: trip.branch_id,
+        breakdown: [{ method: 'cash', amount: counted }],
+        declared_total: counted,
       });
       toast.success('Cash-up submitted');
     } catch (e: any) {
@@ -86,7 +74,6 @@ export function CashUpSection({ trip }: CashUpSectionProps) {
           />
         ))}
         <DenomInput label="Coins (₦)" value={coins} onChange={setCoins} />
-        <DenomInput label="Expenses (₦)" value={expenses} onChange={setExpenses} />
       </View>
       <View style={s.summary}>
         <Row label="Expected (system)" value={formatNGN(expected)} />
@@ -97,6 +84,14 @@ export function CashUpSection({ trip }: CashUpSectionProps) {
             {formatNGN(variance)}
           </Text>
         </View>
+        {latest ? (
+          <View style={s.row}>
+            <Text style={s.rowLabel}>Latest submitted</Text>
+            <Text style={s.rowValue}>
+              {formatNGN(latest.declared_total)} · {latest.status}
+            </Text>
+          </View>
+        ) : null}
       </View>
       <View style={s.buttonWrap}>
         <Button
