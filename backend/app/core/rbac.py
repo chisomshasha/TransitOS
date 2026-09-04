@@ -24,6 +24,7 @@ from app.core.roles import (
     SA,
     SAFETY_OPS,
     USERS_READ,
+    can_assign_role,
 )
 from app.core.security import get_current_user, get_current_user_with_roles
 
@@ -57,6 +58,7 @@ __all__ = [
     "FLEET_OPS",
     "USERS_READ",
     "CREW_READ",
+    "can_assign_role",
     "require_roles",
     "get_current_user",
 ]
