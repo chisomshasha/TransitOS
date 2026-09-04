@@ -12,8 +12,9 @@ import { formatDateTime } from '@/lib/format';
 import { brand } from '@/lib/theme';
 import { canAccess } from '@/lib/rbac';
 import { useAuth } from '@/lib/auth-context';
+import type { Role } from '@/lib/types';
 
-const OPERATOR_ROLES = [
+const OPERATOR_ROLES: Role[] = [
   'super_admin',
   'owner',
   'general_manager',

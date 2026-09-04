@@ -13,6 +13,7 @@ import { CreateTransferModal } from '@/components/admin/CreateTransferModal';
 import { brand } from '@/lib/theme';
 import { canAccess } from '@/lib/rbac';
 import { useAuth } from '@/lib/auth-context';
+import type { Role } from '@/lib/types';
 
 const STATUS_TONE: Record<string, SevTone> = {
   initiated: 'warn',
@@ -29,7 +30,7 @@ const FILTERS: Array<{ id: string; label: string }> = [
   { id: 'cancelled', label: 'Cancelled' },
 ];
 
-const CREATOR_ROLES = [
+const CREATOR_ROLES: Role[] = [
   'super_admin',
   'owner',
   'general_manager',
