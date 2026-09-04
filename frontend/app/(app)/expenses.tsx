@@ -17,7 +17,7 @@ import { formatNGN } from '@/lib/format';
 import type { Role } from '@/lib/types';
 
 const CREATOR_ROLES: Role[] = [
-  'super_admin', 'owner', 'general_manager', 'branch_manager', 'accountant',
+  'super_admin', 'owner', 'general_manager', 'branch_manager', 'chief_accountant', 'branch_accountant',
 ];
 
 export default function ExpensesScreen() {
@@ -84,7 +84,7 @@ export default function ExpensesScreen() {
                 <View style={s.body}>
                   <Text style={s.name}>{item.category}</Text>
                   <Text style={s.sub}>{new Date(item.created_at ?? Date.now()).toLocaleDateString()}</Text>
-                  {item.note ? <Text style={s.sub}>{item.note}</Text> : null}
+                  {item.notes ? <Text style={s.sub}>{item.notes}</Text> : null}
                 </View>
                 <Text style={s.amount}>{formatNGN(item.amount)}</Text>
               </View>

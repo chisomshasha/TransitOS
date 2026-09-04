@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Banknote, ChevronRight, FileDown } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '@/lib/auth-context';
 import { canAccess } from '@/lib/rbac';
 import { useApproveCashUp, useCashUps, useConductor, useRejectCashUp, useTrip } from '@/lib/queries';

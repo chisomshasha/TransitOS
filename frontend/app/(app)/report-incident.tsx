@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { Stack, useRouter } from 'expo-router';
 import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useCreateIncident } from '@/lib/queries-p4';
 import { useTrips, useUsers } from '@/lib/queries';
 import { Chip, Avatar, type SevTone } from '@/components/ui/kit';

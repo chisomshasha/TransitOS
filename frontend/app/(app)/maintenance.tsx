@@ -33,7 +33,7 @@ export default function MaintenanceScreen() {
   const vehiclesQ = useVehicles({ page: 1, page_size: 200 });
   const items = data?.items ?? [];
   const canCreate = canAccess(user?.role, CREATOR_ROLES);
-  const vehicleOptions = (vehiclesQ.data?.items ?? []).map((v) => ({ label: v.plate_number, value: v.id }));
+  const vehicleOptions = (vehiclesQ.data?.items ?? []).map((v) => ({ label: v.reg_number, value: v.id }));
 
   const reset = () => { setVehicleId(null); setType(''); setCost(''); setNote(''); };
   const close = () => { reset(); setOpen(false); };
@@ -84,9 +84,9 @@ export default function MaintenanceScreen() {
                 <View style={s.body}>
                   <Text style={s.name}>{item.type}</Text>
                   <Text style={s.sub}>{new Date(item.created_at ?? Date.now()).toLocaleDateString()}</Text>
-                  {item.note ? <Text style={s.sub}>{item.note}</Text> : null}
+                  {item.notes ? <Text style={s.sub}>{item.notes}</Text> : null}
                 </View>
-                <Text style={s.amount}>{formatNGN(item.cost ?? 0)}</Text>
+                <Text style={s.amount}>{formatNGN(item.cost_total ?? 0)}</Text>
               </View>
             </Card>
           )}

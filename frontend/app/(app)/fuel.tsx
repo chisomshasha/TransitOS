@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Fuel as FuelIcon } from 'lucide-react-native';
-import { useCreateFuel, useFuel, useVehicles } from '@/lib/queries';
+import { useCreateFuelLog, useFuelLogs, useVehicles } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -22,18 +22,18 @@ const CREATOR_ROLES: Role[] = [
 export default function FuelScreen() {
   const { user } = useAuth();
   const toast = useToast();
-  const create = useCreateFuel();
+  const create = useCreateFuelLog();
   const [open, setOpen] = useState(false);
   const [vehicleId, setVehicleId] = useState<string | null>(null);
   const [liters, setLiters] = useState('');
   const [cost, setCost] = useState('');
   const [odometer, setOdometer] = useState('');
-  const { data, isLoading, isFetching, refetch } = useFuel({ page: 1, page_size: 50 });
+  const { data, isLoading, isFetching, refetch } = useFuelLogs({ page: 1, page_size: 50 });
   const vehiclesQ = useVehicles({ page: 1, page_size: 200 });
   const items = data?.items ?? [];
   const canCreate = canAccess(user?.role, CREATOR_ROLES);
-  const vehicleOptions = (vehiclesQ.data?.items ?? []).map((v) => ({ label: v.plate_number, value: v.id }));
-  const plateOf = (id: string) => vehiclesQ.data?.items.find((v) => v.id === id)?.plate_number ?? '—';
+  const vehicleOptions = (vehiclesQ.data?.items ?? []).map((v) => ({ label: v.reg_number, value: v.id }));
+  const plateOf = (id: string) => vehiclesQ.data?.items.find((v) => v.id === id)?.reg_number ?? '—';
 
   const reset = () => { setVehicleId(null); setLiters(''); setCost(''); setOdometer(''); };
   const close = () => { reset(); setOpen(false); };
@@ -91,7 +91,7 @@ export default function FuelScreen() {
                   </Text>
                   {item.odometer_km != null ? <Text style={s.sub}>Odo: {item.odometer_km} km</Text> : null}
                 </View>
-                <Text style={s.amount}>{formatNGN(item.cost ?? 0)}</Text>
+                <Text style={s.amount}>{formatNGN(item.cost_total ?? 0)}</Text>
               </View>
             </Card>
           )}

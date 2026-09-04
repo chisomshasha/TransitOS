@@ -259,18 +259,18 @@ function CashFlowCard({ data }: { data?: { series: Array<{ label: string; revenu
   if (!data || data.series.length === 0) {
     return <View style={s.emptyCard}><Text style={s.emptyText}>No cash-flow data</Text></View>;
   }
-  const maxVal = Math.max(...data.series.flatMap((s) => [s.revenue, s.expenses]), 1);
+  const maxVal = Math.max(...data.series.flatMap((row) => [row.revenue, row.expenses]), 1);
   return (
     <View style={s.listCard}>
-      {data.series.map((s) => (
-        <View key={s.label} style={s.cfRow}>
-          <Text style={s.cfLabel}>{s.label}</Text>
+      {data.series.map((row) => (
+        <View key={row.label} style={s.cfRow}>
+          <Text style={s.cfLabel}>{row.label}</Text>
           <View style={{ flex: 1, marginHorizontal: 10 }}>
-            <View style={[s.cfBar, { width: `${(s.revenue / maxVal) * 100}%`, backgroundColor: '#047857', marginBottom: 3 }]} />
-            <View style={[s.cfBar, { width: `${(s.expenses / maxVal) * 100}%`, backgroundColor: '#B91C1C' }]} />
+            <View style={[s.cfBar, { width: `${(row.revenue / maxVal) * 100}%`, backgroundColor: '#047857', marginBottom: 3 }]} />
+            <View style={[s.cfBar, { width: `${(row.expenses / maxVal) * 100}%`, backgroundColor: '#B91C1C' }]} />
           </View>
-          <Text style={[s.cfNet, { color: s.net >= 0 ? '#047857' : '#B91C1C' }]}>
-            {formatNGN(s.net)}
+          <Text style={[s.cfNet, { color: row.net >= 0 ? '#047857' : '#B91C1C' }]}>
+            {formatNGN(row.net)}
           </Text>
         </View>
       ))}
