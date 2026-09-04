@@ -14,6 +14,7 @@ from app.core.rbac import (
     OWNER,
     SAFETY_OPS,
     USERS_READ,
+    can_assign_role,
     require_roles,
 )
 from app.models.user import UserRole, UserStatus
@@ -136,6 +137,14 @@ async def create_user(
                 detail="Branch managers can only create users in their own branch",
             )
 
+    # General privilege-escalation guard: no actor may grant a role more
+    # senior than their own, regardless of which SAFETY_OPS role they hold.
+    if not can_assign_role(actor["role"], body.role.value):
+        raise HTTPException(
+            status_code=403,
+            detail="You cannot assign a role more senior than your own",
+        )
+
     # Branch must exist (if provided)
     if body.branch_id:
         if not ObjectId.is_valid(body.branch_id) or not await db.branches.find_one(
@@ -187,6 +196,27 @@ async def update_user(
     USER_NULLABLE = {"phone", "branch_id", "hire_date", "photo_url"}
     raw = body.model_dump(exclude_unset=True)
     updates = {k: v for k, v in raw.items() if v is not None or k in USER_NULLABLE}
+
+    # General privilege-escalation guard: mirrors the check in create_user.
+    # Applies whether the actor is editing someone else or themselves.
+    if "role" in updates:
+        new_role = updates["role"]
+        new_role_value = new_role.value if hasattr(new_role, "value") else new_role
+        if actor["role"] == UserRole.BRANCH_MANAGER.value and new_role_value not in (
+            UserRole.BRANCH_ACCOUNTANT.value,
+            UserRole.DRIVER.value,
+            UserRole.CONDUCTOR.value,
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Branch managers can only assign branch-accountant, driver, and conductor roles",
+            )
+        if not can_assign_role(actor["role"], new_role_value):
+            raise HTTPException(
+                status_code=403,
+                detail="You cannot assign a role more senior than your own",
+            )
+
     new_password = updates.pop("new_password", None)
     if not updates and new_password is None:
         return SingleResponse[UserResponse](data=project_user(existing))
