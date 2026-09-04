@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "TransitOS",
+    "slug": "transitos",
+    "owner": "chisomshasha",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "transitos",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFCC00"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.transitos.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "TransitOS uses the camera to scan vehicle and driver QR codes for quick lookup."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFCC00"
+      },
+      "package": "com.transitos.app",
+      "permissions": ["CAMERA"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TransitOS to access your camera to scan QR codes."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": { "jsEngine": "hermes" },
+          "ios": { "jsEngine": "hermes" }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "apiUrl": "https://transitos-production.up.railway.app",
+      "router": { "origin": false },
+      "eas": { "projectId": "81b16dd7-e438-4b35-9792-01f5076ebda6" }
+    }
+  }
+}
