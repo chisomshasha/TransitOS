@@ -70,7 +70,7 @@ export default function ConductorsScreen() {
                 <View style={s.row}>
                   <View style={s.iconBox}><MapPin size={18} color="#0E7490" /></View>
                   <View style={s.body}>
-                    <Text style={s.name}>{item.user?.full_name ?? 'Unnamed conductor'}</Text>
+                    <Text style={s.name}>{item.full_name ?? 'Unnamed conductor'}</Text>
                     <Text style={s.sub}>Badge {item.badge_no}</Text>
                     <View style={s.badges}>
                       <Badge

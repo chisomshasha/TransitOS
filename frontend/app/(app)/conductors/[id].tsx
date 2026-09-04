@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { MapPin, Mail, Phone, Building2, CreditCard } from 'lucide-react-native';
 import { useBranches, useConductors } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
@@ -8,8 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 
 export default function ConductorDetailScreen() {
-  const route = useRoute();
-  const id = (route.params as { id: string })?.id;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading } = useConductors({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const c = (data?.items ?? []).find((x) => x.id === id);
@@ -17,8 +16,8 @@ export default function ConductorDetailScreen() {
   if (isLoading) return <View style={s.loading}><Spinner label="Loading conductor…" /></View>;
   if (!c) return <View style={s.loading}><Text style={s.errorText}>Conductor not found</Text></View>;
 
-  const branchName = c.user?.branch_id
-    ? branchesQ.data?.items.find((b) => b.id === c.user?.branch_id)?.name ?? '—'
+  const branchName = c.branch_id
+    ? branchesQ.data?.items.find((b) => b.id === c.branch_id)?.name ?? '—'
     : '—';
 
   return (
@@ -27,7 +26,7 @@ export default function ConductorDetailScreen() {
         <View style={s.header}>
           <View style={s.avatar}><MapPin size={24} color="#0E7490" /></View>
           <View style={{ flex: 1 }}>
-            <Text style={s.name}>{c.user?.full_name ?? 'Unnamed conductor'}</Text>
+            <Text style={s.name}>{c.full_name ?? 'Unnamed conductor'}</Text>
             <Text style={s.sub}>Badge {c.badge_no}</Text>
           </View>
           <Badge
@@ -37,8 +36,8 @@ export default function ConductorDetailScreen() {
         </View>
         <View style={s.divider} />
         <InfoRow icon={<CreditCard size={14} color="#64748B" />} label="Badge no." value={c.badge_no} />
-        <InfoRow icon={<Mail size={14} color="#64748B" />} label="Email" value={c.user?.email ?? '—'} />
-        <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={c.user?.phone ?? '—'} />
+        <InfoRow icon={<Mail size={14} color="#64748B" />} label="Email" value={c.email ?? '—'} />
+        <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={c.phone ?? '—'} />
         <InfoRow icon={<Building2 size={14} color="#64748B" />} label="Branch" value={branchName} />
       </Card>
     </ScrollView>
