@@ -23,7 +23,7 @@ const ALL_TABS: Tab[] = [
   { id: 'vehicles', href: '/vehicles', label: 'Vehicles', Icon: Truck },
   { id: 'more', href: '/more', label: 'More', Icon: LayoutGrid },
   { id: 'reports', href: '/reports', label: 'Reports', Icon: BarChart3 },
-  { id: 'me', href: '/profile', label: 'Me', Icon: User },
+  { id: 'profile', href: '/profile', label: 'Me', Icon: User },
 ];
 
 export function BottomTabs() {
