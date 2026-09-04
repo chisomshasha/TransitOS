@@ -20,7 +20,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.rbac import GM, OWNER, SA, require_roles
 from app.routers._common import paginate, project
-from app.schemas.common import ListResponse
+from app.schemas.common import ListResponse, SingleResponse
 
 router = APIRouter(prefix="/audit-log", tags=["audit-log"])
 
@@ -170,7 +170,7 @@ async def audit_log_summary(
             by_action[str(action)] = int(doc.get("count", 0))
 
     total = sum(by_action.values())
-    return {"total": total, "by_action": by_action}
+    return SingleResponse[dict](data={"total": total, "by_action": by_action})
 
 
 @router.get("/actors")
