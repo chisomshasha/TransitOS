@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useBranches, useUsers } from '@/lib/queries';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -9,8 +9,7 @@ import { User, Mail, Phone, Building2 } from 'lucide-react-native';
 import { ROLE_LABELS } from '@/lib/types';
 
 export default function UserDetailScreen() {
-  const route = useRoute();
-  const id = (route.params as { id: string })?.id;
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading } = useUsers({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const u = (data?.items ?? []).find((x) => x.id === id);
