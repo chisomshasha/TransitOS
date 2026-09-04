@@ -41,13 +41,13 @@ export function CreateTripModal({ visible, open, onClose, onSaved }: CreateTripM
   const routeOptions = (routesQ.data?.items ?? []).map((r) => ({ label: r.name, value: r.id }));
   const vehicleOptions = (vehiclesQ.data?.items ?? [])
     .filter((v) => v.status === 'available')
-    .map((v) => ({ label: `${v.plate_number} · ${v.model}`, value: v.id }));
+    .map((v) => ({ label: `${v.reg_number} · ${v.type}`, value: v.id }));
   const driverOptions = (driversQ.data?.items ?? [])
     .filter((d) => d.status === 'active')
-    .map((d) => ({ label: d.user?.full_name ?? d.id, value: d.id }));
+    .map((d) => ({ label: d.full_name ?? d.id, value: d.id }));
   const conductorOptions = (conductorsQ.data?.items ?? [])
     .filter((c) => c.status === 'active')
-    .map((c) => ({ label: c.user?.full_name ?? c.id, value: c.id }));
+    .map((c) => ({ label: c.full_name ?? c.id, value: c.id }));
   const statusOptions = (Object.keys(TRIP_STATUS_LABELS) as TripStatus[]).map((st) => ({
     label: TRIP_STATUS_LABELS[st],
     value: st,
