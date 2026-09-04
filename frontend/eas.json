@@ -18,7 +18,7 @@
       },
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://transitos-production-4b46.up.railway.app",
+        "EXPO_PUBLIC_API_URL": "https://transitos-production.up.railway.app",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
       }
     },
