@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react-native';
 
 interface State {
   error: Error | null;
+  componentStack: string | null;
 }
 
 interface Props {
@@ -12,18 +13,19 @@ interface Props {
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { error: null };
+  state: State = { error: null, componentStack: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Full details stay in device logs for developers — never shown to users.
     console.error('[ErrorBoundary]', this.props.scope ?? 'app', error, info.componentStack);
+    this.setState({ componentStack: info.componentStack ?? null });
   }
 
-  reset = () => this.setState({ error: null });
+  reset = () => this.setState({ error: null, componentStack: null });
 
   render() {
     if (this.state.error) {
@@ -40,6 +42,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 : 'The app hit an unexpected error.'}
               {'\n'}Your session is safe — please try again.
             </Text>
+            {/* TEMP DEBUG — remove once the underlying bug is found */}
+            <View style={s.debugBox}>
+              <Text style={s.debugLabel}>Debug details (temporary):</Text>
+              <Text style={s.debugText} selectable>
+                {this.state.error.name}: {this.state.error.message}
+              </Text>
+              {this.state.componentStack ? (
+                <Text style={s.debugStack} selectable numberOfLines={12}>
+                  {this.state.componentStack.trim()}
+                </Text>
+              ) : null}
+            </View>
             <Pressable
               onPress={this.reset}
               style={({ pressed }) => [s.retryButton, pressed && { opacity: 0.85 }]}
@@ -48,6 +62,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             >
               <RefreshCw size={16} color="#FFFFFF" />
               <Text style={s.retryText}>Try again</Text>
+
             </Pressable>
           </View>
         </View>
@@ -101,6 +116,33 @@ const s = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
+  },
+  debugBox: {
+    width: '100%',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 10,
+    marginBottom: 16,
+    maxHeight: 220,
+  },
+  debugLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    fontWeight: '600',
+  },
+  debugStack: {
+    fontSize: 10,
+    color: '#991B1B',
+    marginTop: 6,
+    fontFamily: 'monospace',
   },
   retryButton: {
     flexDirection: 'row',
