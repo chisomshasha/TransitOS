@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Field } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, type VehicleStatus } from '@/lib/types';
+import { VEHICLE_STATUSES, VEHICLE_STATUS_LABELS, VEHICLE_TYPES, type VehicleStatus, type VehicleType } from '@/lib/types';
 
 export interface CreateVehicleModalProps {
   visible?: boolean;
@@ -16,42 +16,51 @@ export interface CreateVehicleModalProps {
   onSaved?: () => void;
 }
 
+const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  bus: 'Bus',
+  minibus: 'Minibus',
+  truck: 'Truck',
+};
+
 export function CreateVehicleModal({ visible, open, onClose, onSaved }: CreateVehicleModalProps) {
   const show = !!(visible ?? open);
   const create = useCreateVehicle();
   const toast = useToast();
   const branchesQ = useBranches({ page: 1, page_size: 100 });
-  const [plate, setPlate] = useState('');
-  const [model, setModel] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [year, setYear] = useState('');
+  const [regNumber, setRegNumber] = useState('');
+  const [type, setType] = useState<VehicleType>('bus');
+  const [capacitySeats, setCapacitySeats] = useState('');
+  const [capacityKg, setCapacityKg] = useState('');
   const [branchId, setBranchId] = useState<string | null>(null);
   const [status, setStatus] = useState<VehicleStatus>('available');
 
-  const reset = () => { setPlate(''); setModel(''); setCapacity(''); setYear(''); setBranchId(null); setStatus('available'); };
+  const reset = () => {
+    setRegNumber(''); setType('bus'); setCapacitySeats(''); setCapacityKg('');
+    setBranchId(null); setStatus('available');
+  };
   const close = () => { reset(); onClose(); };
 
   const branchOptions = (branchesQ.data?.items ?? []).map((b) => ({ label: b.name, value: b.id }));
   const statusOptions = VEHICLE_STATUSES.map((st) => ({ label: VEHICLE_STATUS_LABELS[st], value: st }));
+  const typeOptions = VEHICLE_TYPES.map((t) => ({ label: VEHICLE_TYPE_LABELS[t], value: t }));
 
   const onSubmit = async () => {
-    if (!plate.trim()) return toast.error('Plate number is required');
-    if (!model.trim()) return toast.error('Model is required');
+    if (!regNumber.trim()) return toast.error('Registration number is required');
     if (!branchId) return toast.error('Branch is required');
-    const cap = parseInt(capacity, 10);
-    if (!Number.isFinite(cap) || cap < 1) return toast.error('Capacity must be at least 1');
-    const yr = year.trim() ? parseInt(year, 10) : null;
-    if (yr !== null && (!Number.isFinite(yr) || yr < 1990 || yr > 2100)) return toast.error('Year must be between 1990 and 2100');
+    const seats = parseInt(capacitySeats, 10);
+    if (!Number.isFinite(seats) || seats < 1) return toast.error('Seat capacity must be at least 1');
+    const kg = capacityKg.trim() ? parseInt(capacityKg, 10) : 0;
+    if (!Number.isFinite(kg) || kg < 0) return toast.error('Cargo capacity must be ≥ 0');
     try {
       await create.mutateAsync({
-        plate_number: plate.trim().toUpperCase(),
-        model: model.trim(),
-        capacity_seats: cap,
-        year,
+        reg_number: regNumber.trim().toUpperCase(),
+        type,
+        capacity_seats: seats,
+        capacity_kg: kg,
         branch_id: branchId,
         status,
       });
-      toast.success(`Vehicle ${plate.trim().toUpperCase()} added`);
+      toast.success(`Vehicle ${regNumber.trim().toUpperCase()} added`);
       reset();
       onSaved?.();
     } catch (e: any) {
@@ -65,27 +74,21 @@ export function CreateVehicleModal({ visible, open, onClose, onSaved }: CreateVe
         <Bus size={18} color="#0E7490" />
         <Text style={s.infoText}>Vehicles belong to a branch and can be assigned to trips while available.</Text>
       </View>
-      <View style={s.row}>
-        <View style={s.col}>
-          <Field label="Plate number" required>
-            <TextInput style={s.input} value={plate} onChangeText={setPlate} placeholder="LAG-123-XY" placeholderTextColor="#94A3B8" autoCapitalize="characters" autoCorrect={false} />
-          </Field>
-        </View>
-        <View style={s.col}>
-          <Field label="Model" required>
-            <TextInput style={s.input} value={model} onChangeText={setModel} placeholder="Toyota Hiace" placeholderTextColor="#94A3B8" />
-          </Field>
-        </View>
-      </View>
+      <Field label="Registration number" required>
+        <TextInput style={s.input} value={regNumber} onChangeText={setRegNumber} placeholder="LAG-123-XY" placeholderTextColor="#94A3B8" autoCapitalize="characters" autoCorrect={false} />
+      </Field>
+      <Field label="Type" required>
+        <Select value={type} onChange={setType} options={typeOptions} />
+      </Field>
       <View style={s.row}>
         <View style={s.col}>
           <Field label="Seats" required>
-            <TextInput style={s.input} value={capacity} onChangeText={setCapacity} placeholder="18" placeholderTextColor="#94A3B8" keyboardType="numeric" />
+            <TextInput style={s.input} value={capacitySeats} onChangeText={setCapacitySeats} placeholder="18" placeholderTextColor="#94A3B8" keyboardType="numeric" />
           </Field>
         </View>
         <View style={s.col}>
-          <Field label="Year">
-            <TextInput style={s.input} value={year} onChangeText={setYear} placeholder="2021" placeholderTextColor="#94A3B8" keyboardType="numeric" />
+          <Field label="Cargo (kg)" helperText="Optional, defaults to 0">
+            <TextInput style={s.input} value={capacityKg} onChangeText={setCapacityKg} placeholder="0" placeholderTextColor="#94A3B8" keyboardType="numeric" />
           </Field>
         </View>
       </View>
