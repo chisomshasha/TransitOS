@@ -10,15 +10,18 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AuthProvider } from '@/lib/auth-context';
 import { queryClient } from '@/lib/queryClient';
+import { ToastProvider } from '@/components/ui/Toast';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <Slot />
-          <Toast />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Slot />
+            <Toast />
+          </AuthProvider>
+        </ToastProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
