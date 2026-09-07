@@ -1,23 +1,60 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { useBranches, useUsers } from '@/lib/queries';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useBranches, useDeleteUser, useUsers } from '@/lib/queries';
+import { useAuth } from '@/lib/auth-context';
+import { canAccess } from '@/lib/rbac';
+import { useToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { User, Mail, Phone, Building2 } from 'lucide-react-native';
-import { ROLE_LABELS } from '@/lib/types';
+import { User, Mail, Phone, Building2, Trash2 } from 'lucide-react-native';
+import { ROLE_LABELS, type Role } from '@/lib/types';
+
+const DELETE_ROLES: Role[] = [
+  'super_admin', 'owner', 'general_manager',
+  'branch_manager', 'operations_manager', 'fleet_manager',
+];
 
 export default function UserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user: me } = useAuth();
+  const router = useRouter();
+  const toast = useToast();
   const { data, isLoading } = useUsers({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
+  const deleteUser = useDeleteUser();
   const u = (data?.items ?? []).find((x) => x.id === id);
 
   if (isLoading) return <View style={s.loading}><Spinner label="Loading user…" /></View>;
   if (!u) return <View style={s.loading}><Text style={s.errorText}>User not found</Text></View>;
 
   const branchName = branchesQ.data?.items.find((b) => b.id === u.branch_id)?.name ?? '—';
+  const isSelf = me?.id === u.id;
+  const canDelete = canAccess(me?.role, DELETE_ROLES) && !isSelf;
+
+  const onDelete = () => {
+    Alert.alert(
+      'Delete this user?',
+      `${u.full_name} will be deactivated and lose access immediately. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUser.mutateAsync(u.id);
+              toast.success(`${u.full_name} was deleted`);
+              router.back();
+            } catch (e: any) {
+              toast.error(e?.response?.data?.detail ?? 'Could not delete user');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView style={s.root} contentContainerStyle={{ padding: 16 }}>
@@ -40,6 +77,20 @@ export default function UserDetailScreen() {
         <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={u.phone ?? '—'} />
         <InfoRow icon={<Building2 size={14} color="#64748B" />} label="Branch" value={branchName} />
       </Card>
+      {canDelete ? (
+        <Pressable
+          style={({ pressed }) => [s.deleteBtn, pressed && { opacity: 0.85 }]}
+          onPress={onDelete}
+          disabled={deleteUser.isPending}
+        >
+          <Trash2 size={16} color="#B91C1C" />
+          <Text style={s.deleteBtnText}>
+            {deleteUser.isPending ? 'Deleting…' : 'Delete user'}
+          </Text>
+        </Pressable>
+      ) : isSelf ? (
+        <Text style={s.selfNote}>You can't delete your own account.</Text>
+      ) : null}
     </ScrollView>
   );
 }
@@ -65,4 +116,17 @@ const s = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   infoLabel: { fontSize: 13, color: '#64748B', width: 80, marginLeft: 8 },
   infoValue: { fontSize: 13, fontWeight: '500', color: '#171717', flex: 1 },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+  },
+  deleteBtnText: { color: '#B91C1C', fontWeight: '700', fontSize: 15, marginLeft: 8 },
+  selfNote: { textAlign: 'center', fontSize: 12, color: '#94A3B8', marginTop: 16 },
 });
