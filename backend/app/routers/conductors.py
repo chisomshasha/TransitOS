@@ -25,6 +25,8 @@ from app.routers._common import (
     assert_branch_access,
     branch_scope_query,
     enforce_branch_write,
+    enrich_one_with_user_fields,
+    enrich_with_user_fields,
     oid,
     paginate,
     project,
@@ -56,7 +58,7 @@ async def list_conductors(
     if scope:
         query.update(scope)
 
-    return await paginate(
+    result = await paginate(
         db,
         "conductors",
         page=page,
@@ -64,6 +66,8 @@ async def list_conductors(
         query=query,
         sort=[("badge_no", 1)],
     )
+    await enrich_with_user_fields(db, result.items)
+    return result
 
 
 @router.get("/{conductor_id}", response_model=SingleResponse[ConductorResponse])
@@ -76,7 +80,9 @@ async def get_conductor(
     if doc is None:
         raise HTTPException(status_code=404, detail="Conductor not found")
     assert_branch_access(user, doc.get("branch_id"), roles=BRANCH_OPS_SCOPED)
-    return SingleResponse[ConductorResponse](data=project(doc))
+    data = project(doc)
+    await enrich_one_with_user_fields(db, data)
+    return SingleResponse[ConductorResponse](data=data)
 
 
 @router.post("", response_model=SingleResponse[ConductorResponse], status_code=201)
@@ -131,7 +137,11 @@ async def create_conductor(
         branch_id=branch_id,
         after=project(payload),
     )
-    return SingleResponse[ConductorResponse](data=project(payload))
+    data = project(payload)
+    data["full_name"] = user_doc.get("full_name")
+    data["email"] = user_doc.get("email")
+    data["phone"] = user_doc.get("phone")
+    return SingleResponse[ConductorResponse](data=data)
 
 
 @router.patch("/{conductor_id}", response_model=SingleResponse[ConductorResponse])
@@ -150,7 +160,9 @@ async def update_conductor(
 
     updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
-        return SingleResponse[ConductorResponse](data=project(existing))
+        data = project(existing)
+        await enrich_one_with_user_fields(db, data)
+        return SingleResponse[ConductorResponse](data=data)
 
     if "badge_no" in updates and updates["badge_no"] != existing["badge_no"]:
         if await db.conductors.find_one(
@@ -173,7 +185,9 @@ async def update_conductor(
         before=project(existing),
         after=project(new_doc),
     )
-    return SingleResponse[ConductorResponse](data=project(new_doc))
+    data = project(new_doc)
+    await enrich_one_with_user_fields(db, data)
+    return SingleResponse[ConductorResponse](data=data)
 
 
 @router.delete("/{conductor_id}", status_code=204)

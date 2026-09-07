@@ -112,6 +112,49 @@ async def paginate(
     )
 
 
+async def enrich_with_user_fields(
+    db: AsyncIOMotorDatabase,
+    items: list[dict[str, Any]],
+    *,
+    user_id_field: str = "user_id",
+) -> list[dict[str, Any]]:
+    """Attach ``full_name``/``email``/``phone`` from the linked user record.
+
+    Driver/Conductor documents only store ``user_id``; the denormalized
+    display fields declared on their response schemas are populated here
+    via a single batched lookup rather than one query per item. Mutates
+    and returns ``items`` in place so callers can enrich after the fact
+    (e.g. post-pagination) without restructuring their query.
+    """
+    user_ids = {item.get(user_id_field) for item in items if item.get(user_id_field)}
+    valid_ids = [ObjectId(uid) for uid in user_ids if ObjectId.is_valid(uid)]
+    by_id: dict[str, dict[str, Any]] = {}
+    if valid_ids:
+        async for u in db.users.find(
+            {"_id": {"$in": valid_ids}},
+            {"full_name": 1, "email": 1, "phone": 1},
+        ):
+            by_id[str(u["_id"])] = u
+
+    for item in items:
+        u = by_id.get(item.get(user_id_field))
+        item["full_name"] = u.get("full_name") if u else None
+        item["email"] = u.get("email") if u else None
+        item["phone"] = u.get("phone") if u else None
+    return items
+
+
+async def enrich_one_with_user_fields(
+    db: AsyncIOMotorDatabase,
+    item: dict[str, Any],
+    *,
+    user_id_field: str = "user_id",
+) -> dict[str, Any]:
+    """Single-item convenience wrapper around ``enrich_with_user_fields``."""
+    await enrich_with_user_fields(db, [item], user_id_field=user_id_field)
+    return item
+
+
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -278,6 +321,8 @@ __all__ = [
     "project",
     "project_user",
     "paginate",
+    "enrich_with_user_fields",
+    "enrich_one_with_user_fields",
     "utcnow",
     "BRANCH_SCOPED_ROLES",
     "BRANCH_OPS_SCOPED",

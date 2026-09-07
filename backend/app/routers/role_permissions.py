@@ -25,6 +25,7 @@ from app.models.role_permission import (
     SCOPES,
 )
 from app.routers._common import project, utcnow
+from app.schemas.common import SingleResponse
 from app.services import write_audit
 
 router = APIRouter(prefix="/role-permissions", tags=["role-permissions"])
@@ -69,12 +70,14 @@ async def permissions_meta(
     user: dict = Depends(require_roles(SA, OWNER, GM)),
 ):
     """Return the static metadata (resources, actions, scopes, roles) for the matrix editor."""
-    return {
-        "resources": RESOURCES,
-        "actions": ACTIONS,
-        "scopes": SCOPES,
-        "roles": [r.value for r in Role],
-    }
+    return SingleResponse[dict](
+        data={
+            "resources": RESOURCES,
+            "actions": ACTIONS,
+            "scopes": SCOPES,
+            "roles": [r.value for r in Role],
+        }
+    )
 
 
 @router.get("/{role_name}", response_model=RolePermissionResponse)

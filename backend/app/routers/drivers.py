@@ -25,6 +25,8 @@ from app.routers._common import (
     assert_branch_access,
     branch_scope_query,
     enforce_branch_write,
+    enrich_one_with_user_fields,
+    enrich_with_user_fields,
     oid,
     paginate,
     project,
@@ -56,7 +58,7 @@ async def list_drivers(
     if scope:
         query.update(scope)
 
-    return await paginate(
+    result = await paginate(
         db,
         "drivers",
         page=page,
@@ -64,6 +66,8 @@ async def list_drivers(
         query=query,
         sort=[("license_no", 1)],
     )
+    await enrich_with_user_fields(db, result.items)
+    return result
 
 
 @router.get("/{driver_id}", response_model=SingleResponse[DriverResponse])
@@ -76,7 +80,9 @@ async def get_driver(
     if doc is None:
         raise HTTPException(status_code=404, detail="Driver not found")
     assert_branch_access(user, doc.get("branch_id"), roles=BRANCH_OPS_SCOPED)
-    return SingleResponse[DriverResponse](data=project(doc))
+    data = project(doc)
+    await enrich_one_with_user_fields(db, data)
+    return SingleResponse[DriverResponse](data=data)
 
 
 @router.post("", response_model=SingleResponse[DriverResponse], status_code=201)
@@ -132,7 +138,11 @@ async def create_driver(
         branch_id=branch_id,
         after=project(payload),
     )
-    return SingleResponse[DriverResponse](data=project(payload))
+    data = project(payload)
+    data["full_name"] = user_doc.get("full_name")
+    data["email"] = user_doc.get("email")
+    data["phone"] = user_doc.get("phone")
+    return SingleResponse[DriverResponse](data=data)
 
 
 @router.patch("/{driver_id}", response_model=SingleResponse[DriverResponse])
@@ -151,7 +161,9 @@ async def update_driver(
 
     updates = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
-        return SingleResponse[DriverResponse](data=project(existing))
+        data = project(existing)
+        await enrich_one_with_user_fields(db, data)
+        return SingleResponse[DriverResponse](data=data)
 
     if "license_no" in updates and updates["license_no"] != existing["license_no"]:
         if await db.drivers.find_one(
@@ -174,7 +186,9 @@ async def update_driver(
         before=project(existing),
         after=project(new_doc),
     )
-    return SingleResponse[DriverResponse](data=project(new_doc))
+    data = project(new_doc)
+    await enrich_one_with_user_fields(db, data)
+    return SingleResponse[DriverResponse](data=data)
 
 
 @router.delete("/{driver_id}", status_code=204)
