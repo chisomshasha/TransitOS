@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_db
-from app.core.rbac import FLEET_OPS, GM, OM, OWNER, SA, require_roles
+from app.core.rbac import FLEET_OPS, require_roles
 from app.models.vehicle_transfer import (
     TRANSFER_TRANSITIONS,
     TransferStatus,
@@ -31,7 +31,7 @@ from app.schemas.common import ListResponse, SingleResponse
 router = APIRouter(prefix="/vehicle-transfers", tags=["vehicle-transfers"])
 
 # Roles that can initiate / confirm / return / cancel
-TRANSFER_OPERATORS = [SA, OWNER, GM, OM] + FLEET_OPS
+TRANSFER_OPERATORS = FLEET_OPS
 
 
 async def _transfer_or_404(db, transfer_id: str):
