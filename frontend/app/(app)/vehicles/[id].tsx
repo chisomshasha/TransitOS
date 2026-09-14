@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, TextInput, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Building2, Bus, CalendarDays, FileText, Fuel, Plus, QrCode, Share, Users, Wrench } from 'lucide-react-native';
+import { Building2, Bus, CalendarDays, FileText, Fuel, Pencil, Plus, QrCode, Share, Users, Wrench } from 'lucide-react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import QRCode from 'react-native-qrcode-svg';
 import { useBranches, useVehicles } from '@/lib/queries';
 import { useVehicleDocuments, useCreateVehicleDocument, useDeleteVehicleDocument } from '@/lib/queries-p2';
+import { useAuth } from '@/lib/auth-context';
+import { canAccess } from '@/lib/rbac';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
@@ -16,8 +18,11 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { useToast } from '@/components/ui/Toast';
 import { BarCard, Chip, type SevTone } from '@/components/ui/kit';
+import { CreateVehicleModal } from '@/components/admin/CreateVehicleModal';
 import { brand } from '@/lib/theme';
-import type { VehicleStatus } from '@/lib/types';
+import type { Role, VehicleStatus } from '@/lib/types';
+
+const EDIT_ROLES: Role[] = ['super_admin', 'owner', 'general_manager', 'branch_manager', 'fleet_manager'];
 
 const STATUS_TONE: Record<string, 'success' | 'info' | 'warning' | 'neutral'> = {
   available: 'success',
@@ -41,6 +46,7 @@ export default function VehicleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
   const { data, isLoading } = useVehicles({ page: 1, page_size: 200 });
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const docsQ = useVehicleDocuments(id);
@@ -50,6 +56,7 @@ export default function VehicleDetailScreen() {
 
   const [addDocOpen, setAddDocOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [docType, setDocType] = useState('');
   const [issuer, setIssuer] = useState('');
   const [refNumber, setRefNumber] = useState('');
@@ -143,6 +150,12 @@ export default function VehicleDetailScreen() {
             tone={STATUS_TONE[v.status] ?? 'neutral'}
           />
         </View>
+        {canAccess(user?.role, EDIT_ROLES) ? (
+          <Pressable style={s.editBtn} onPress={() => setEditOpen(true)}>
+            <Pencil size={14} color={brand.navy} />
+            <Text style={s.editBtnText}>Edit details</Text>
+          </Pressable>
+        ) : null}
         <View style={s.divider} />
         <InfoRow icon={<Users size={14} color="#64748B" />} label="Seats" value={String(v.capacity_seats)} />
         <InfoRow icon={<Building2 size={14} color="#64748B" />} label="Branch" value={branchName} />
@@ -256,6 +269,13 @@ export default function VehicleDetailScreen() {
           </Pressable>
         </View>
       </Modal>
+
+      <CreateVehicleModal
+        editing={v}
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => setEditOpen(false)}
+      />
     </ScrollView>
   );
 }
@@ -275,6 +295,8 @@ const s = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorText: { fontSize: 16, color: '#B91C1C' },
   header: { flexDirection: 'row', alignItems: 'center' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#ECFEFF' },
+  editBtnText: { fontSize: 12.5, fontWeight: '700', color: brand.navy, marginLeft: 5 },
   avatar: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#ECFEFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   name: { fontSize: 18, fontWeight: '700', color: '#171717' },
   sub: { fontSize: 13, color: '#737373', marginTop: 2 },
