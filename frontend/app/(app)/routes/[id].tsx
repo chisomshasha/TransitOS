@@ -1,20 +1,33 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useRoutes } from '@/lib/queries';
+import { useAuth } from '@/lib/auth-context';
+import { canAccess } from '@/lib/rbac';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { ArrowRight, MapPin, Route as RouteIcon } from 'lucide-react-native';
+import { CreateRouteModal } from '@/components/admin/CreateRouteModal';
+import { ArrowRight, MapPin, Route as RouteIcon, Pencil } from 'lucide-react-native';
 import { formatNGN } from '@/lib/format';
+import type { Role } from '@/lib/types';
+
+const EDIT_ROLES: Role[] = [
+  'super_admin', 'owner', 'general_manager',
+  'branch_manager', 'fleet_manager', 'operations_manager',
+];
 
 export default function RouteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
   const { data, isLoading } = useRoutes({ page: 1, page_size: 100 });
   const r = (data?.items ?? []).find((x) => x.id === id);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (isLoading) return <View style={s.loading}><Spinner label="Loading route…" /></View>;
   if (!r) return <View style={s.loading}><Text style={s.errorText}>Route not found</Text></View>;
+
+  const canEdit = canAccess(user?.role, EDIT_ROLES);
 
   return (
     <ScrollView style={s.root} contentContainerStyle={{ padding: 16 }}>
@@ -33,6 +46,12 @@ export default function RouteDetailScreen() {
             tone={r.is_active ? 'success' : 'neutral'}
           />
         </View>
+        {canEdit ? (
+          <Pressable style={s.editBtn} onPress={() => setEditOpen(true)}>
+            <Pencil size={14} color="#0B3D91" />
+            <Text style={s.editBtnText}>Edit details</Text>
+          </Pressable>
+        ) : null}
         <View style={s.divider} />
         <View style={s.cities}>
           <View style={s.cityBox}>
@@ -65,6 +84,13 @@ export default function RouteDetailScreen() {
           </>
         ) : null}
       </Card>
+
+      <CreateRouteModal
+        editing={r}
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => setEditOpen(false)}
+      />
     </ScrollView>
   );
 }
@@ -83,6 +109,8 @@ const s = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorText: { fontSize: 16, color: '#B91C1C' },
   header: { flexDirection: 'row', alignItems: 'center' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#ECFEFF' },
+  editBtnText: { fontSize: 12.5, fontWeight: '700', color: '#0B3D91', marginLeft: 5 },
   iconBox: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   name: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: 4 },
   divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 16 },
