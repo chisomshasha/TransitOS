@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useBranches, useDeleteUser, useUsers } from '@/lib/queries';
 import { useAuth } from '@/lib/auth-context';
-import { canAccess } from '@/lib/rbac';
+import { canAccess, assignableRoles } from '@/lib/rbac';
 import { useToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { User, Mail, Phone, Building2, Trash2 } from 'lucide-react-native';
+import { EditUserModal } from '@/components/admin/EditUserModal';
+import { User, Mail, Phone, Building2, Trash2, Pencil } from 'lucide-react-native';
 import { ROLE_LABELS, type Role } from '@/lib/types';
 
-const DELETE_ROLES: Role[] = [
+const MUTATE_ROLES: Role[] = [
   'super_admin', 'owner', 'general_manager',
   'branch_manager', 'operations_manager', 'fleet_manager',
 ];
@@ -25,13 +26,16 @@ export default function UserDetailScreen() {
   const branchesQ = useBranches({ page: 1, page_size: 200 });
   const deleteUser = useDeleteUser();
   const u = (data?.items ?? []).find((x) => x.id === id);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (isLoading) return <View style={s.loading}><Spinner label="Loading user…" /></View>;
   if (!u) return <View style={s.loading}><Text style={s.errorText}>User not found</Text></View>;
 
   const branchName = branchesQ.data?.items.find((b) => b.id === u.branch_id)?.name ?? '—';
   const isSelf = me?.id === u.id;
-  const canDelete = canAccess(me?.role, DELETE_ROLES) && !isSelf;
+  const canMutate = canAccess(me?.role, MUTATE_ROLES);
+  const canDelete = canMutate && !isSelf;
+  const canEdit = canMutate;
 
   const onDelete = () => {
     Alert.alert(
@@ -72,6 +76,12 @@ export default function UserDetailScreen() {
             tone={u.is_active ? 'success' : 'neutral'}
           />
         </View>
+        {canEdit ? (
+          <Pressable style={s.editBtn} onPress={() => setEditOpen(true)}>
+            <Pencil size={14} color="#0B3D91" />
+            <Text style={s.editBtnText}>Edit details</Text>
+          </Pressable>
+        ) : null}
         <View style={s.divider} />
         <InfoRow icon={<Mail size={14} color="#64748B" />} label="Email" value={u.email} />
         <InfoRow icon={<Phone size={14} color="#64748B" />} label="Phone" value={u.phone ?? '—'} />
@@ -91,6 +101,14 @@ export default function UserDetailScreen() {
       ) : isSelf ? (
         <Text style={s.selfNote}>You can't delete your own account.</Text>
       ) : null}
+
+      <EditUserModal
+        user={u}
+        assignableRoles={assignableRoles(me?.role)}
+        visible={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={() => setEditOpen(false)}
+      />
     </ScrollView>
   );
 }
@@ -110,6 +128,8 @@ const s = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorText: { fontSize: 16, color: '#B91C1C' },
   header: { flexDirection: 'row', alignItems: 'center' },
+  editBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#ECFEFF' },
+  editBtnText: { fontSize: 12.5, fontWeight: '700', color: '#0B3D91', marginLeft: 5 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#ECFEFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   name: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: 4 },
   divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 16 },
