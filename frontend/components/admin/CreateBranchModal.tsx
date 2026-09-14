@@ -1,23 +1,29 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Building2, MapPin } from 'lucide-react-native';
-import { useCreateBranch } from '@/lib/queries';
+import { useCreateBranch, useUpdateBranch } from '@/lib/queries';
 import { useToast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
 import { Field } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
 import { MapModal } from '@/components/ui/MapModal';
+import type { Branch } from '@/lib/types';
 
 export interface CreateBranchModalProps {
   visible?: boolean;
   open?: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  /** When provided, the modal edits this branch instead of creating a new one. */
+  editing?: Branch;
 }
 
-export function CreateBranchModal({ visible, open, onClose, onSaved }: CreateBranchModalProps) {
+export function CreateBranchModal({ visible, open, onClose, onSaved, editing }: CreateBranchModalProps) {
   const show = !!(visible ?? open);
+  const isEdit = !!editing;
   const create = useCreateBranch();
+  const update = useUpdateBranch(editing?.id ?? '');
+  const saving = isEdit ? update.isPending : create.isPending;
   const toast = useToast();
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -28,6 +34,22 @@ export function CreateBranchModal({ visible, open, onClose, onSaved }: CreateBra
   const [email, setEmail] = useState('');
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!show) return;
+    if (editing) {
+      setName(editing.name);
+      setCode(editing.code);
+      setCity(editing.city);
+      setState(editing.state);
+      setAddress(editing.address);
+      setPhone(editing.contact_phone ?? '');
+      setEmail(editing.contact_email ?? '');
+      setPicked(editing.gps ? { lat: editing.gps.lat, lng: editing.gps.lng } : null);
+    } else {
+      setName(''); setCode(''); setCity(''); setState(''); setAddress(''); setPhone(''); setEmail(''); setPicked(null);
+    }
+  }, [show, editing]);
 
   const reset = () => { setName(''); setCode(''); setCity(''); setState(''); setAddress(''); setPhone(''); setEmail(''); setPicked(null); };
   const close = () => { reset(); onClose(); };
@@ -40,29 +62,43 @@ export function CreateBranchModal({ visible, open, onClose, onSaved }: CreateBra
     if (!address.trim()) return toast.error('Address is required');
     if (email && !/^\S+@\S+.\S+$/.test(email)) return toast.error('Email looks invalid');
     try {
-      await create.mutateAsync({
-        name: name.trim(),
-        code: code.trim().toUpperCase(),
-        city: city.trim(),
-        state: state.trim(),
-        address: address.trim(),
-        contact_phone: phone.trim() || null,
-        contact_email: email.trim() || null,
-        gps: picked ? { lat: picked.lat, lng: picked.lng } : null,
-        status: 'active',
-        is_active: true,
-      } as any);
-      toast.success(`Branch "${name.trim()}" created`);
+      if (isEdit && editing) {
+        await update.mutateAsync({
+          name: name.trim(),
+          code: code.trim().toUpperCase(),
+          city: city.trim(),
+          state: state.trim(),
+          address: address.trim(),
+          contact_phone: phone.trim() || null,
+          contact_email: email.trim() || null,
+          gps: picked ? { lat: picked.lat, lng: picked.lng } : null,
+        } as any);
+        toast.success(`Branch "${name.trim()}" updated`);
+      } else {
+        await create.mutateAsync({
+          name: name.trim(),
+          code: code.trim().toUpperCase(),
+          city: city.trim(),
+          state: state.trim(),
+          address: address.trim(),
+          contact_phone: phone.trim() || null,
+          contact_email: email.trim() || null,
+          gps: picked ? { lat: picked.lat, lng: picked.lng } : null,
+          status: 'active',
+          is_active: true,
+        } as any);
+        toast.success(`Branch "${name.trim()}" created`);
+      }
       reset();
       onSaved?.();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail ?? 'Could not create branch');
+      toast.error(e?.response?.data?.detail ?? `Could not ${isEdit ? 'update' : 'create'} branch`);
     }
   };
 
   return (
     <>
-      <Modal visible={show} onClose={close} title="New branch" variant="sheet">
+      <Modal visible={show} onClose={close} title={isEdit ? 'Edit branch' : 'New branch'} variant="sheet">
         <View style={s.infoBanner}>
           <Building2 size={18} color="#0E7490" />
           <Text style={s.infoText}>
@@ -118,7 +154,7 @@ export function CreateBranchModal({ visible, open, onClose, onSaved }: CreateBra
           </Pressable>
         </Field>
         <View style={s.spacerL} />
-        <Button label="Create branch" onPress={onSubmit} loading={create.isPending} fullWidth />
+        <Button label={isEdit ? 'Save changes' : 'Create branch'} onPress={onSubmit} loading={saving} fullWidth />
         <View style={s.spacerS} />
         <Button label="Cancel" onPress={close} variant="ghost" fullWidth />
       </Modal>

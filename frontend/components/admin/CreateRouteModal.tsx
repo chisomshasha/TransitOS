@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Route as RouteIcon } from 'lucide-react-native';
-import { useBranches, useCreateRoute } from '@/lib/queries';
+import { useBranches, useCreateRoute, useUpdateRoute } from '@/lib/queries';
 import { useToast } from '@/components/ui/Toast';
 import { Modal } from '@/components/ui/Modal';
 import { Field } from '@/components/ui/Field';
 import { Button } from '@/components/ui/Button';
-import { ROUTE_TYPES, type RouteType } from '@/lib/types';
+import { ROUTE_TYPES, type Route, type RouteType } from '@/lib/types';
 
 export interface CreateRouteModalProps {
   visible?: boolean;
   open?: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  /** When provided, the modal edits this route instead of creating a new one. */
+  editing?: Route;
 }
 
 const TYPE_LABELS: Record<RouteType, string> = {
@@ -20,9 +22,12 @@ const TYPE_LABELS: Record<RouteType, string> = {
   interstate: 'Interstate',
 };
 
-export function CreateRouteModal({ visible, open, onClose, onSaved }: CreateRouteModalProps) {
+export function CreateRouteModal({ visible, open, onClose, onSaved, editing }: CreateRouteModalProps) {
   const show = !!(visible ?? open);
+  const isEdit = !!editing;
   const create = useCreateRoute();
+  const update = useUpdateRoute(editing?.id ?? '');
+  const saving = isEdit ? update.isPending : create.isPending;
   const toast = useToast();
   const branchesQ = useBranches({ page: 1, page_size: 100 });
   const branchOptions = branchesQ.data?.items ?? [];
@@ -39,10 +44,23 @@ export function CreateRouteModal({ visible, open, onClose, onSaved }: CreateRout
 
   useEffect(() => {
     if (!show) return;
+    if (editing) {
+      setName(editing.name);
+      setType(editing.type);
+      setOriginBranchId(editing.origin_branch_id);
+      setDestBranchId(editing.destination_branch_id);
+      setOriginCity(editing.origin_city);
+      setDestCity(editing.destination_city);
+      setDistance(String(editing.distance_km));
+      setDuration(String(editing.estimated_duration_hours));
+      setPassengerFare(String(editing.base_fare_passenger));
+      setCargoFare(String(editing.base_fare_cargo_per_kg));
+      return;
+    }
     if (!originBranchId && branchOptions.length > 0) setOriginBranchId(branchOptions[0].id);
     if (!destBranchId && branchOptions.length > 1) setDestBranchId(branchOptions[1].id);
     else if (!destBranchId && branchOptions.length === 1) setDestBranchId(branchOptions[0].id);
-  }, [show, branchOptions, originBranchId, destBranchId]);
+  }, [show, editing, branchOptions, originBranchId, destBranchId]);
 
   const reset = () => {
     setName(''); setType('intrastate'); setOriginBranchId(''); setDestBranchId('');
@@ -66,27 +84,43 @@ export function CreateRouteModal({ visible, open, onClose, onSaved }: CreateRout
     if (!Number.isFinite(fareN) || fareN < 0) return toast.error('Passenger fare must be ≥ 0');
     if (!Number.isFinite(cargoN) || cargoN < 0) return toast.error('Cargo fare must be ≥ 0');
     try {
-      await create.mutateAsync({
-        name: name.trim(),
-        branch_id: originBranchId,
-        type,
-        origin_branch_id: originBranchId,
-        destination_branch_id: destBranchId,
-        origin_city: originCity.trim(),
-        destination_city: destCity.trim(),
-        distance_km: distN,
-        base_fare_passenger: fareN,
-        base_fare_cargo_per_kg: cargoN,
-        estimated_duration_hours: durN,
-        intermediate_stops: [],
-        required_permits: [],
-        is_active: true,
-      });
-      toast.success(`Route "${name.trim()}" created`);
+      if (isEdit && editing) {
+        await update.mutateAsync({
+          name: name.trim(),
+          type,
+          origin_branch_id: originBranchId,
+          destination_branch_id: destBranchId,
+          origin_city: originCity.trim(),
+          destination_city: destCity.trim(),
+          distance_km: distN,
+          base_fare_passenger: fareN,
+          base_fare_cargo_per_kg: cargoN,
+          estimated_duration_hours: durN,
+        });
+        toast.success(`Route "${name.trim()}" updated`);
+      } else {
+        await create.mutateAsync({
+          name: name.trim(),
+          branch_id: originBranchId,
+          type,
+          origin_branch_id: originBranchId,
+          destination_branch_id: destBranchId,
+          origin_city: originCity.trim(),
+          destination_city: destCity.trim(),
+          distance_km: distN,
+          base_fare_passenger: fareN,
+          base_fare_cargo_per_kg: cargoN,
+          estimated_duration_hours: durN,
+          intermediate_stops: [],
+          required_permits: [],
+          is_active: true,
+        });
+        toast.success(`Route "${name.trim()}" created`);
+      }
       reset();
       onSaved?.();
     } catch (e: any) {
-      toast.error(e?.response?.data?.detail ?? 'Could not create route');
+      toast.error(e?.response?.data?.detail ?? `Could not ${isEdit ? 'update' : 'create'} route`);
     }
   };
 
@@ -104,14 +138,14 @@ export function CreateRouteModal({ visible, open, onClose, onSaved }: CreateRout
   );
 
   return (
-    <Modal visible={show} onClose={close} title="New route" variant="sheet">
+    <Modal visible={show} onClose={close} title={isEdit ? 'Edit route' : 'New route'} variant="sheet">
       <View style={s.infoBanner}>
         <RouteIcon size={18} color="#0E7490" />
         <Text style={s.infoText}>A route connects an origin branch to a destination branch. Trips are scheduled against routes.</Text>
       </View>
       {branchOptions.length < 2 ? (
         <View style={s.warnBanner}>
-          <Text style={s.warnBannerText}>You need at least 2 branches to create a route. Create the second branch first.</Text>
+          <Text style={s.warnBannerText}>You need at least 2 branches to {isEdit ? 'edit' : 'create'} a route.</Text>
         </View>
       ) : null}
       <Field label="Name" required>
@@ -168,7 +202,7 @@ export function CreateRouteModal({ visible, open, onClose, onSaved }: CreateRout
         </View>
       </View>
       <View style={s.spacerL} />
-      <Button label="Create route" onPress={onSubmit} loading={create.isPending} fullWidth disabled={branchOptions.length < 2} />
+      <Button label={isEdit ? 'Save changes' : 'Create route'} onPress={onSubmit} loading={saving} fullWidth disabled={branchOptions.length < 2} />
       <View style={s.spacerS} />
       <Button label="Cancel" onPress={close} variant="ghost" fullWidth />
     </Modal>
