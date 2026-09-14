@@ -53,8 +53,11 @@ READ_ALL: list[Role] = [
 # Roles that can mutate branches / users.
 SAFETY_OPS: list[Role] = [SA, OWNER, GM, OM, BM, FM]
 
-# Roles that can mutate vehicles / drivers / conductors.
-FLEET_OPS: list[Role] = [SA, OWNER, GM, BM, FM]
+# Roles that can mutate vehicles / drivers / conductors / routes.
+# Operations Manager owns trip scheduling *and* the fleet-setup roster
+# alongside Fleet Manager (see CREW_READ below, and every fleet-setup
+# screen's creator-role list on the frontend, which already assumed this).
+FLEET_OPS: list[Role] = [SA, OWNER, GM, BM, FM, OM]
 
 # Roles that can list users (read-only for branch-scoped).
 USERS_READ: list[Role] = [SA, OWNER, GM, BM, BA]
