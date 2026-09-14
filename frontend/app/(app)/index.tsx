@@ -86,17 +86,14 @@ export default function DashboardScreen() {
 
   const mapPoints: MapPoint[] = useMemo(() => {
     return (branches.data?.items ?? [])
-      .filter((b) => typeof (b as { lat?: number }).lat === 'number')
-      .map((b) => {
-        const bb = b as { id: string; name: string; lat?: number; lng?: number };
-        return {
-          id: bb.id,
-          lat: bb.lat!,
-          lng: bb.lng ?? 0,
-          label: bb.name,
-          color: 'warning' as const,
-        };
-      });
+      .filter((b) => b.gps != null)
+      .map((b) => ({
+        id: b.id,
+        lat: b.gps!.lat,
+        lng: b.gps!.lng,
+        label: b.name,
+        color: 'warning' as const,
+      }));
   }, [branches.data]);
 
   const refreshing =
