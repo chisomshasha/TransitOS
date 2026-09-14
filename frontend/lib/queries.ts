@@ -245,6 +245,13 @@ export function useCreateRoute(): UseMutationResult<Route, unknown, Record<strin
     onSuccess: () => qc.invalidateQueries({ queryKey: ['routes'] }),
   });
 }
+export function useUpdateRoute(id: string): UseMutationResult<Route, unknown, Record<string, unknown>> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => patchSingle<Route>(`/routes/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['routes'] }),
+  });
+}
 
 // ─── trips ───────────────────────────────────────────────────────────────────
 export function useTrips(params?: Record<string, unknown>): UseQueryResult<Page<Trip>> {

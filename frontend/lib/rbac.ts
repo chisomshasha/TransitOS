@@ -90,4 +90,33 @@ export function defaultHomeForRole(role: Role | null | undefined): string {
   return '/';
 }
 
+// ─── Role-assignment hierarchy ──────────────────────────────────────────────
+// Mirrors the backend's app/core/roles.py ROLE_RANK / can_assign_role: an
+// actor may only grant a role at their own seniority tier or below. This is
+// used to populate role pickers with sensible choices client-side; the
+// backend enforces the same rule regardless, so this is UX only, not the
+// security boundary.
+const ROLE_RANK: Record<Role, number> = {
+  super_admin: 0,
+  owner: 1,
+  general_manager: 2,
+  operations_manager: 3,
+  fleet_manager: 3,
+  chief_accountant: 3,
+  branch_manager: 4,
+  branch_accountant: 5,
+  driver: 6,
+  conductor: 6,
+};
+
+export function assignableRoles(actorRole: Role | null | undefined): Role[] {
+  if (!actorRole) return [];
+  if (actorRole === 'branch_manager') {
+    // Mirrors the backend's extra, narrower allow-list for Branch Manager.
+    return ['branch_accountant', 'driver', 'conductor'];
+  }
+  const actorRank = ROLE_RANK[actorRole];
+  return ALL_ROLES.filter((r) => ROLE_RANK[r] >= actorRank);
+}
+
 export { ALL_ROLES };
