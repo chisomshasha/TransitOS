@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend — requirements guard + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Guard — no JavaScript packages in requirements.txt
+        # Catches the class of bug that broke the Railway build:
+        # `expo-linear-gradient==15.0.7` (an npm package) sitting in
+        # backend/requirements.txt, where pip can never resolve it.
+        run: python backend/scripts/check_requirements.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run test suite
+        working-directory: backend
+        run: python -m pytest -q
+
+  contract:
+    name: Frontend ↔ backend contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Runtime contract — fire every frontend call
+        # The backend suite ships the frontend as a sibling directory, so
+        # this job checks out the whole repo and runs the contract tests
+        # that live in backend/app/tests. They need the frontend present
+        # (the source is scanned for API calls) but not node_modules.
+        #
+        # NOTE: every path below MUST stay on a `\` continuation. A line
+        # that breaks the continuation turns the rest of the list into a
+        # second shell command, which fails the step and silently drops
+        # the remaining test files from the run. That is how
+        # test_role_access_regressions.py stopped being executed at all.
+        working-directory: backend
+        run: |
+          python -m pytest -q \
+            app/tests/test_frontend_runtime_contract.py \
+            app/tests/test_collection_consistency.py \
+            app/tests/test_response_envelope.py \
+            app/tests/test_role_access_regressions.py
+
+      - name: Static contract checker — routes, params, body fields, reachability, RBAC, screens
+        # The checker compares the front end's own API calls against the
+        # backend's own route table and role lists, including the
+        # call -> hook -> screen mapping that a path-only diff misses.
+        # It caught five real access defects in Sprint D.
+        #
+        # It also compares the *body fields* the front end sends against
+        # the schema the backend declares, and reports any endpoint no
+        # screen can reach. Both of those found real defects in the 4th
+        # pass that no other check could see.
+        working-directory: backend
+        run: python ../tools/contract/check.py
+
+      - name: Guard — the over-the-air update configuration
+        # An update that never arrives fails silently: no error, no
+        # crash, the app keeps running the old code while everyone
+        # believes the fix shipped. Every way that can happen is static,
+        # so it is checked here — the dependency, the update URL, the
+        # runtime version, the channels, and the publish scripts.
+        working-directory: backend
+        run: python ../tools/contract/check_updates.py
+
+  frontend:
+    name: Frontend — lockfile sync + typecheck + Android bundle
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify lockfile is in sync with package.json
+        # EAS runs `npm ci`, which is strict. If the lockfile drifts the
+        # mobile build fails on the user's device, not here.
+        run: npm ci --dry-run --legacy-peer-deps
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Guard — no half-wired styling toolchain
+        # `className=` on a React Native component only works when
+        # NativeWind is fully wired (babel preset + metro plugin + the
+        # native `react-native-worklets` module). When it is not, React
+        # Native silently drops the prop and the screen renders with no
+        # styles at all — a build that succeeds and a UI that is broken.
+        # See tools/contract/check_styling.py.
+        run: python ../tools/contract/check_styling.py
+
+      - name: Build the Android JS bundle
+        # The APK is the thing the client installs. Metro bundling is the
+        # step that fails on a broken import, a missing asset or a bad
+        # package.json entry — and it is invisible to `tsc --noEmit`.
+        # `--no-bytecode` keeps the bundle readable so it can be inspected.
+        run: npx expo export --no-bytecode --platform android
+
+      - name: Guard — the bundle must contain the Android entry point
+        run: |
+          test -n "$(ls dist/_expo/static/js/android/*.js 2>/dev/null)" \
+            || (echo "::error::no Android JS bundle was produced" && exit 1)
+          echo "Android bundle present:"
+          ls -la dist/_expo/static/js/android/

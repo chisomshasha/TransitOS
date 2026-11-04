@@ -1,0 +1,45 @@
+# Top-level .dockerignore — applies to whatever the Docker build context is.
+# Excludes anything that shouldn't be baked into an image.
+
+# Git / VCS
+.git
+.gitignore
+.gitattributes
+.github
+
+# Frontend (we don't need it for the backend image)
+frontend
+node_modules
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+.tox
+.venv
+venv
+env
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Docs that bloat the context
+*.md
+docs
+
+# Test artefacts
+*.log
+*.tmp

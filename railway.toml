@@ -1,0 +1,17 @@
+# Railway service config — read by Railway when deploying this repo.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Call the start.sh script baked into the Docker image. It handles
+# ``$PORT`` env var expansion and proper signal handling (``exec``).
+# Calling the script directly avoids the "literal ${PORT:-8000}"
+# problem that happens when Railway's startCommand is passed without
+# a shell wrapper.
+startCommand = "/app/start.sh"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

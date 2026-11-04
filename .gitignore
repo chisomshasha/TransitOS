@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Build output
+dist/
+web-build/
+.expo/
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# EAS / store credentials — never commit these
+frontend/secrets/
+*-service-account.json
+google-services.json
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+*.tmp
+
+# Derived build artefacts
+docs/testing_manual_plan.json
+docs/it_developer_guide_plan.json
+docs/user_manual_plan.json
+docs/docx-renderer/bin/
+docs/docx-renderer/obj/
