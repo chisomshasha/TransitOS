@@ -20,8 +20,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://transitos-production.up.railway.app",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
-      },
-      "_comment": "EXPO_PUBLIC_API_URL takes precedence over app.json's extra.apiUrl (resolveBaseURL() in lib/api.ts). Keep it equal to extra.apiUrl unless this profile deliberately points at a different backend."
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -35,8 +34,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://transitos-production.up.railway.app",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
-      },
-      "_comment": "EXPO_PUBLIC_API_URL takes precedence over app.json's extra.apiUrl (resolveBaseURL() in lib/api.ts). Keep it equal to extra.apiUrl unless this profile deliberately points at a different backend."
+      }
     },
     "production": {
       "autoIncrement": true,
@@ -47,8 +45,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://transitos-production.up.railway.app",
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
-      },
-      "_comment": "EXPO_PUBLIC_API_URL takes precedence over app.json's extra.apiUrl (resolveBaseURL() in lib/api.ts). Keep it equal to extra.apiUrl unless this profile deliberately points at a different backend."
+      }
     }
   },
   "submit": {
