@@ -14,7 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_db
 from app.core.rbac import ANY_AUTHENTICATED, require_roles
-from app.routers._common import BRANCH_OPS_SCOPED
+from app.routers._common import BRANCH_SCOPED_ROLES
 from app.schemas.common import SingleResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -25,10 +25,17 @@ async def dashboard_summary(
     db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(require_roles(*ANY_AUTHENTICATED)),
 ):
-    """Return aggregated counters for the home dashboard."""
-    # Branch scope for scoped roles
+    """Return aggregated counters for the home dashboard.
+
+    Every counter is scoped. The branch-scoped roles — which includes
+    drivers and conductors, not just the management tiers — see their
+    own branch only, and the counters that have no branch of their own
+    (vehicle transfers) are matched on the branch they move *from*.
+    Before this, a driver opening the dashboard was shown the whole
+    company's fleet, incidents and cash-ups.
+    """
     branch_scope: dict[str, Any] = {}
-    if user.get("role") in BRANCH_OPS_SCOPED and user.get("branch_id"):
+    if user.get("role") in BRANCH_SCOPED_ROLES and user.get("branch_id"):
         branch_scope = {"branch_id": user["branch_id"]}
 
     # Vehicles in maintenance
@@ -76,8 +83,14 @@ async def dashboard_summary(
     )
 
     # Open transfers (initiated or confirmed, not returned/cancelled)
+    # A transfer has no branch of its own, so it is matched on the
+    # branch the vehicle is leaving.
     open_transfers = await db.vehicle_transfers.count_documents(
-        {"status": {"$in": ["initiated", "confirmed"]}, "is_active": True}
+        {
+            "status": {"$in": ["initiated", "confirmed"]},
+            "is_active": True,
+            **({"from_branch_id": user["branch_id"]} if "branch_id" in branch_scope else {}),
+        }
     )
 
     # Pending cash-ups (submitted, awaiting approval)

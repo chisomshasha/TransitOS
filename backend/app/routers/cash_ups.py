@@ -26,6 +26,7 @@ from app.services import (
     write_audit,
 )
 from app.routers._common import (
+    resolve_crew_profile_id,
     BRANCH_OPS_SCOPED,
     assert_branch_access,
     branch_scope_query,
@@ -90,6 +91,40 @@ async def _attach_conductor_names(
     return docs
 
 
+async def _conductor_scope(
+    db: AsyncIOMotorDatabase, actor: dict
+) -> Optional[str]:
+    """The conductor profile id of the signed-in conductor, if any.
+
+    A conductor may read the cash-ups they declared. They may not read
+    anyone else's: the list endpoint scoped only the management tiers
+    (``BRANCH_OPS_SCOPED``), so a conductor opening **Cash-ups** was
+    shown every cash-up in the company — other branches' takings
+    included.
+    """
+    if actor.get("role") != "conductor":
+        return None
+    profile_id = await resolve_crew_profile_id(db, actor)
+    if not profile_id:
+        # A conductor with no profile can see nothing.
+        return "000000000000000000000000"
+    return profile_id
+
+
+async def _assert_own_cash_up(
+    db: AsyncIOMotorDatabase, actor: dict, doc: dict
+) -> None:
+    """A conductor may only touch the cash-ups they declared.
+
+    404, not 403: another conductor's cash-up must not be discoverable
+    by guessing an id. The management tiers are unaffected — they are
+    scoped by branch, not by ownership.
+    """
+    conductor_id = await _conductor_scope(db, actor)
+    if conductor_id and doc.get("conductor_id") != conductor_id:
+        raise HTTPException(status_code=404, detail="Cash-up not found")
+
+
 @router.get("", response_model=ListResponse[CashUpResponse])
 async def list_cash_ups(
     db: AsyncIOMotorDatabase = Depends(get_db),
@@ -110,6 +145,9 @@ async def list_cash_ups(
     scope = branch_scope_query(user, roles=BRANCH_OPS_SCOPED)
     if scope:
         query.update(scope)
+    conductor_id = await _conductor_scope(db, user)
+    if conductor_id:
+        query["conductor_id"] = conductor_id
     page_result = await paginate(
         db, "cash_ups", page=page, page_size=page_size,
         query=query, sort=[("created_at", -1)],
@@ -130,6 +168,7 @@ async def get_cash_up(
     if doc is None:
         raise HTTPException(status_code=404, detail="Cash-up not found")
     assert_branch_access(user, doc.get("branch_id"), roles=BRANCH_OPS_SCOPED)
+    await _assert_own_cash_up(db, user, doc)
     projected = project(doc)
     await _attach_conductor_names(db, [projected])
     return SingleResponse[CashUpResponse](data=projected)
@@ -147,6 +186,7 @@ async def export_cash_up_pdf(
     if doc is None:
         raise HTTPException(status_code=404, detail="Cash-up not found")
     assert_branch_access(user, doc.get("branch_id"), roles=BRANCH_OPS_SCOPED)
+    await _assert_own_cash_up(db, user, doc)
 
     trip = None
     conductor = None
@@ -184,6 +224,16 @@ async def create_cash_up(
         )
 
     enforce_branch_write(actor, body.branch_id, roles=BRANCH_OPS_SCOPED)
+    # A conductor declares their own takings, for the trip they were on.
+    # Without this they could file a cash-up against another conductor's
+    # name, in a branch they do not work for.
+    conductor_id = await _conductor_scope(db, actor)
+    if conductor_id:
+        if body.conductor_id != conductor_id:
+            raise HTTPException(
+                status_code=403,
+                detail="A conductor can only declare their own cash-up",
+            )
     if body.branch_id != trip.get("branch_id"):
         raise HTTPException(
             status_code=400, detail="Cash-up branch does not match trip branch"
@@ -245,6 +295,7 @@ async def update_cash_up(
     if existing is None:
         raise HTTPException(status_code=404, detail="Cash-up not found")
     enforce_branch_write(actor, existing.get("branch_id"), roles=BRANCH_OPS_SCOPED)
+    await _assert_own_cash_up(db, actor, existing)
     if existing.get("status") not in ("draft", "rejected"):
         raise HTTPException(
             status_code=409,
@@ -290,6 +341,7 @@ async def submit(
     if existing is None:
         raise HTTPException(status_code=404, detail="Cash-up not found")
     enforce_branch_write(actor, existing.get("branch_id"), roles=BRANCH_OPS_SCOPED)
+    await _assert_own_cash_up(db, actor, existing)
 
     cu = await submit_cash_up(db, cash_up_id)
     await write_audit(
