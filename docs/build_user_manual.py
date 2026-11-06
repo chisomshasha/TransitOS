@@ -502,7 +502,10 @@ ROLE_WALKTHROUGHS = {
     "branch_manager": [
         ("branch_manager-home", "Your dashboard",
          "Your dashboard covers your branch only. The greeting and the figures "
-         "beneath it are your branch's."),
+         "beneath it are your branch's: the revenue, the trips, the fleet and "
+         "the cash variance for your branch, then the drivers on duty, what is "
+         "in maintenance, the paperwork expiring and the incidents and cash-ups "
+         "waiting on your branch."),
         ("branch_manager-trips", "Your branch's trips",
          "Every trip that belongs to your branch, and nothing from another "
          "branch. The restriction is enforced by the server, not just hidden in "
@@ -535,8 +538,9 @@ ROLE_WALKTHROUGHS = {
     ],
     "operations_manager": [
         ("operations_manager-home", "Your dashboard",
-         "The day's operational picture: trips, buses, cash variance and open "
-         "incidents."),
+         "The day's operational picture: trips today, the active fleet, the "
+         "drivers currently on duty and the open incidents. The money is "
+         "finance's view, not yours — you get the operations picture."),
         ("operations_manager-trips", "Trips",
          "Schedule and manage the day's work across the company."),
         ("operations_manager-live-board", "The live trip board",
@@ -552,7 +556,9 @@ ROLE_WALKTHROUGHS = {
     ],
     "fleet_manager": [
         ("fleet_manager-home", "Your dashboard",
-         "The state of the fleet at a glance."),
+         "The state of the fleet at a glance: how many vehicles are available "
+         "or on the road, how many are in maintenance, and whose documents and "
+         "licences expire in the next thirty days."),
         ("fleet_manager-vehicles", "The fleet",
          "The vehicle list is sorted by what needs attention: status, odometer "
          "and fuel level for every vehicle in your scope. A vehicle in "
@@ -578,7 +584,9 @@ ROLE_WALKTHROUGHS = {
     ],
     "chief_accountant": [
         ("chief_accountant-home", "Your dashboard",
-         "The company's financial position at a glance."),
+         "The company's financial position at a glance: the revenue, the cash "
+         "variance, the trips behind them, and how many cash-ups are waiting "
+         "for you to approve."),
         ("chief_accountant-expenses", "Expenses",
          "Expenses are either **on-trip** costs — fuel, tolls, permits, meals "
          "charged to a specific journey — or **standalone** branch overheads. "
@@ -622,8 +630,10 @@ ROLE_WALKTHROUGHS = {
     ],
     "driver": [
         ("driver-home", "Your dashboard",
-         "Your dashboard shows the work that is yours: your trips and the state "
-         "they are in."),
+         "Your dashboard shows the work that is yours: how many trips are "
+         "assigned to you, whether you are on duty right now, and the trips "
+         "themselves. There are no company figures on it — they are not yours "
+         "to see."),
         ("driver-trips", "Your trips",
          "The trips assigned to you, with their current status."),
         ("driver-trip-detail", "Your trip",
@@ -653,7 +663,10 @@ ROLE_WALKTHROUGHS = {
     ],
     "conductor": [
         ("conductor-home", "Your dashboard",
-         "Your dashboard shows the trips you are working and their state."),
+         "Your dashboard shows the trips you are working and their state: how "
+         "many trips you have, whether you are on duty, and the passengers you "
+         "have recorded so far. There are no company figures on it — they are "
+         "not yours to see."),
         ("conductor-trips", "Your trips",
          "The trips assigned to you, with their current status."),
         ("conductor-trip-detail", "Your trip",

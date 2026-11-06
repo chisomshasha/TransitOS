@@ -755,7 +755,7 @@ Screens: `/branches`, `/users`, `/vehicles`, `/drivers`, `/conductors`, `/routes
 
 #### Your dashboard
 
-Your dashboard covers your branch only. The greeting and the figures beneath it are your branch's.
+Your dashboard covers your branch only. The greeting and the figures beneath it are your branch's: the revenue, the trips, the fleet and the cash variance for your branch, then the drivers on duty, what is in maintenance, the paperwork expiring and the incidents and cash-ups waiting on your branch.
 
 ![Your dashboard](mockup/shots/branch_manager-home.png)
 
@@ -849,7 +849,7 @@ Screens: `/branches`, `/vehicles`, `/drivers`, `/conductors`, `/routes`, `/trips
 
 #### Your dashboard
 
-The day's operational picture: trips, buses, cash variance and open incidents.
+The day's operational picture: trips today, the active fleet, the drivers currently on duty and the open incidents. The money is finance's view, not yours — you get the operations picture.
 
 ![Your dashboard](mockup/shots/operations_manager-home.png)
 
@@ -920,7 +920,7 @@ Screens: `/vehicles`, `/drivers`, `/conductors`, `/routes`, `/trips`, `/fuel`, `
 
 #### Your dashboard
 
-The state of the fleet at a glance.
+The state of the fleet at a glance: how many vehicles are available or on the road, how many are in maintenance, and whose documents and licences expire in the next thirty days.
 
 ![Your dashboard](mockup/shots/fleet_manager-home.png)
 
@@ -1007,7 +1007,7 @@ Screens: `/expenses`, `/cash-ups`, `/reports`, `/settlements`, `/devices`.
 
 #### Your dashboard
 
-The company's financial position at a glance.
+The company's financial position at a glance: the revenue, the cash variance, the trips behind them, and how many cash-ups are waiting for you to approve.
 
 ![Your dashboard](mockup/shots/chief_accountant-home.png)
 
@@ -1139,7 +1139,7 @@ Screens: `/trips`, `/pre-trip-checklist`, `/devices`, `/trips/live`, `/scan`.
 
 #### Your dashboard
 
-Your dashboard shows the work that is yours: your trips and the state they are in.
+Your dashboard shows the work that is yours: how many trips are assigned to you, whether you are on duty right now, and the trips themselves. There are no company figures on it — they are not yours to see.
 
 ![Your dashboard](mockup/shots/driver-home.png)
 
@@ -1233,7 +1233,7 @@ Screens: `/trips`, `/cash-ups`, `/devices`, `/trips/live`, `/scan`.
 
 #### Your dashboard
 
-Your dashboard shows the trips you are working and their state.
+Your dashboard shows the trips you are working and their state: how many trips you have, whether you are on duty, and the passengers you have recorded so far. There are no company figures on it — they are not yours to see.
 
 ![Your dashboard](mockup/shots/conductor-home.png)
 

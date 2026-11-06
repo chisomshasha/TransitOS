@@ -499,6 +499,116 @@ The app also now says which channel it is on: a build that is not
 production shows a **Preview build** strip on the dashboard, so a
 tester cannot show an internal build to the client by mistake.
 
+### 1.19 — The two seeders had drifted apart (P1)
+
+There are two ways to seed a TransitOS database, and they carried
+**separate account lists**:
+
+| | Accounts it created |
+|---|---|
+| `python -m scripts.seed` | 10 — every role |
+| `POST /admin/seed` | 3 — super_admin, owner, general_manager |
+
+The script was extended to all ten roles during the 4th pass; the HTTP
+endpoint was not. The pre-build checklist told the owner to seed with
+``curl -X POST .../admin/seed`` — so following the checklist would have
+produced a **third of the demo accounts**, with nothing in the response
+to say which were missing. The endpoint's ``credentials`` block named
+seven roles, two of which it never created.
+
+Both now read ``app/demo_accounts.py``, so they cannot drift again:
+
+- the HTTP endpoint creates all ten accounts, with the branch-scoped
+  ones attached to the seeded branch (the branch is now created
+  *before* the users, because a branch-scoped role needs a branch);
+- its ``credentials`` block is generated from the same list;
+- ``backend/app/tests/test_seed_accounts.py`` (7 tests) proves the two
+  agree, that the list covers every role the permission system knows,
+  and that the branch-scoped accounts really are on the branch.
+
+### 1.20 — The Codespace bootstrap gave up without Docker (P2)
+
+``setup_codespace.sh`` started MongoDB with Docker, then with a local
+``mongod``, and otherwise printed *"Neither Docker nor mongod is
+available"* and skipped the seed. A Codespace created without the
+Docker feature hits exactly that.
+
+Two things were wrong with it:
+
+1. **No fallback.** The official MongoDB build runs from a tarball
+   with no Docker, no root and no systemd. The script now downloads and
+   starts it as a last resort — verified end to end.
+2. **It assumed the local database was the one that matters.** It is
+   not: the deployed app reads the database **Railway** hosts. The
+   script now reads ``MONGODB_URL`` from ``backend/.env`` first, and
+   when it points at a remote host it seeds that database directly
+   instead of starting a local throwaway.
+
+The Railway path is now the documented one, in both
+``docs/DEMO_ACCOUNTS.md`` and ``docs/PRE-BUILD-CHECKLIST.md``:
+
+```bash
+# Railway dashboard -> your API service -> the shell tab
+cd /app && python -m scripts.seed
+```
+
+``MONGODB_URL`` is already set inside the service, so it reaches the
+real database with no connection string and no Docker.
+
+### 1.21 — Every role saw the Super Admin's dashboard (P0)
+
+The home screen rendered **one** dashboard for everybody: the same four
+company-wide figures (revenue, trips today, active fleet, cash
+variance), the same eight counters, the same fleet map, the same "quick
+actions" row — with only the quick actions and the scan button gated by
+role.
+
+A driver's home screen showed the whole company's revenue. A branch
+manager's showed the company, not their branch. A conductor's showed the
+fleet. The User Manual had promised something else for years — *"your
+dashboard covers your branch only"*, *"your dashboard shows the trips you
+are working"* — so the manual and the app disagreed.
+
+Worse, the data behind it was not scoped. Two endpoints leaked:
+
+| Endpoint | Before |
+|---|---|
+| `GET /dashboard/summary` | scoped only the management tiers, so a driver was shown the whole company's fleet, incidents and cash-ups |
+| `GET /cash-ups` | scoped only the management tiers, so a conductor was shown **every cash-up in the business** — other branches' takings included |
+
+And two write endpoints had the same hole: a conductor could **edit**
+and **submit** another conductor's cash-up, and could file a cash-up in
+someone else's name.
+
+**The fix**, in two halves:
+
+*Data.* The dashboard counters are scoped by `BRANCH_SCOPED_ROLES` —
+which includes drivers and conductors, not just the management tiers —
+and vehicle transfers are matched on the branch they leave. A
+conductor's cash-up list, read, edit, submit and PDF export are all
+scoped to the cash-ups they declared, with a **404** rather than a 403
+so another conductor's cash-up is not discoverable by guessing an id.
+
+*Screens.* `frontend/lib/dashboard-view.ts` is now the single place
+that says which view a role gets: the company view for the platform
+tiers, a branch view, an operations view, a fleet view, finance views
+for the two accountant tiers, and a crew view for drivers and
+conductors — their trips, their duty state, their passenger count, and
+nothing else. The screen renders that table; it decides nothing itself.
+
+The app also stopped asking for what it would be refused: a driver no
+longer requests the fleet, the branch list or the reports summary, so
+there is no 403 in the log and no card reading zero because the
+request had failed.
+
+**The guards.** `backend/app/tests/test_dashboard_roles.py` (13 tests)
+covers the scoping and checks the view table — that every role has a
+view, that the crew view shows no company figure, and that the crew
+view does not ask for the fleet. The existing `screens` contract check
+caught a real regression during this work: rebuilding the card
+catalogue dropped the dashboard's navigation targets, and **/drivers**
+became unreachable from anywhere.
+
 ## 2 · The gap that hid most of the above
 
 The static contract checker compared the backend's required body fields
