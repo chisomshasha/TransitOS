@@ -218,23 +218,16 @@ async def test_cash_up_carries_the_actual_crew_name(client, db, conductor):
 
     now = datetime.now(timezone.utc)
     conductor_doc_id = ObjectId()
-    user_id = ObjectId()
-    await db.users.insert_one({
-        "_id": user_id,
-        "email": "crew@transitos.app",
-        "full_name": "Funke Adebayo",
-        "phone": None,
-        "role": "conductor",
-        "branch_id": None,
-        "status": "active",
-        "hire_date": None,
-        "photo_url": None,
-        "password_hash": hash_password("Test#12345"),
-        "is_active": True,
-        "last_login_at": None,
-        "created_at": now,
-        "updated_at": now,
-    })
+    # The conductor who is asking. The cash-ups list is scoped to the
+    # declarations of the conductor reading it, so the record has to be
+    # theirs — the point of the test is that the *name* is resolved, not
+    # that the field exists.
+    user = await db.users.find_one({"email": "conductor@transitos.app"})
+    assert user is not None
+    user_id = user["_id"]
+    await db.users.update_one(
+        {"_id": user_id}, {"$set": {"full_name": "Funke Adebayo"}}
+    )
     await db.conductors.insert_one({
         "_id": conductor_doc_id,
         "user_id": str(user_id),
