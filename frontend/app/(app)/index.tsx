@@ -43,6 +43,12 @@ import { CreateConductorModal } from '@/components/admin/CreateConductorModal';
 import { CreateRouteModal } from '@/components/admin/CreateRouteModal';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { UpdateChannelBanner } from '@/components/UpdateChannelBanner';
+import {
+  dashboardViewFor,
+  roleSeesMoney,
+  type GlanceId,
+  type KpiId,
+} from '@/lib/dashboard-view';
 import { canAccess } from '@/lib/rbac';
 import { ROLE_LABELS, TRIP_STATUS_LABELS, type Trip } from '@/lib/types';
 
@@ -57,17 +63,27 @@ export default function DashboardScreen() {
   const [conductorOpen, setConductorOpen] = useState(false);
   const [routeOpen, setRouteOpen] = useState(false);
 
-  const branches = useBranches({ page: 1, page_size: 50 });
-  const vehicles = useVehicles({ page: 1, page_size: 50 });
+  // The view decides what this role needs. A request the backend will
+  // refuse is a request worth not making: it is noise in the log, and a
+  // card that reads zero because the request failed is worse than no
+  // card at all.
+  const view = dashboardViewFor(user?.role);
+
+  const branches = useBranches({ page: 1, page_size: 50 }, view.needsBranches);
+  const vehicles = useVehicles({ page: 1, page_size: 50 }, view.needsFleet);
   const trips = useTrips({ page: 1, page_size: 8 });
-  const dashSummary = useDashboardSummary();
+  const dashSummary = useDashboardSummary(view.needsSummary);
 
   const summaryParams = useMemo(() => {
     const to = new Date();
     const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
     return { from: from.toISOString(), to: to.toISOString() };
   }, []);
-  const summary = useOperationsSummary(summaryParams);
+  // The reports summary is closed to drivers and conductors. Asking for
+  // it anyway meant a 403 on every dashboard load and a revenue card
+  // reading zero because the request had failed.
+  const seesMoney = roleSeesMoney(user?.role);
+  const summary = useOperationsSummary(summaryParams, seesMoney);
 
   const liveTrips = useMemo(() => {
     const items = trips.data?.items ?? [];
@@ -119,6 +135,10 @@ export default function DashboardScreen() {
     return 'Good evening';
   }, []);
 
+  const canCreateTrip = canAccess(user?.role, [
+    'super_admin', 'owner', 'general_manager', 'branch_manager',
+    'operations_manager',
+  ]);
   const canCreateBranch = canAccess(user?.role, [
     'super_admin', 'owner', 'general_manager', 'branch_manager',
   ]);
@@ -158,6 +178,19 @@ export default function DashboardScreen() {
   // Phase 8 expanded counters
   const ds = dashSummary.data;
 
+  // The trips the backend returned are already scoped: a driver or a
+  // conductor gets only their own trips, a branch manager only their
+  // branch's. So these figures are the reader's own, not the company's.
+  const myTrips = trips.data?.items ?? [];
+  const myTripsTotal = trips.data?.total ?? myTrips.length;
+  const onDuty = myTrips.filter((t) =>
+    ['boarding', 'departed'].includes(t.status),
+  ).length;
+  const passengersRecorded = myTrips.reduce(
+    (sum, t) => sum + (t.passenger_count ?? 0),
+    0,
+  );
+
   return (
     <ErrorBoundary scope="dashboard">
       <View style={{ flex: 1, backgroundColor: brand.bg }}>
@@ -196,7 +229,7 @@ export default function DashboardScreen() {
             />
           </View>
           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>
-            Here's what's happening with your fleet.
+            {view.subtitle}
           </Text>
           {user ? (
             <View
@@ -228,204 +261,165 @@ export default function DashboardScreen() {
               build that is not production. */}
           <UpdateChannelBanner />
 
-          {/* Primary KPIs — 2x2 */}
+          {/* The role's own figures — the card set comes from
+              lib/dashboard-view.ts, not from the platform view. */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>
-            <KpiCard
-              icon={<TrendingUp size={18} color={brand.success} />}
-              iconBg={brand.successBg}
-              label="Revenue"
-              value={formatNGN(revenue)}
-              sub="Last 30 days"
-            />
-            <KpiCard
-              icon={<Bus size={18} color={brand.navy} />}
-              iconBg={brand.yellowSoft}
-              label="Trips today"
-              value={String(tripsToday)}
-              sub="Scheduled"
-            />
-            <KpiCard
-              icon={<Bus size={18} color={brand.info} />}
-              iconBg={brand.infoBg}
-              label="Active fleet"
-              value={`${activeBuses.active}/${activeBuses.total || '—'}`}
-              sub="Available / on trip"
-            />
-            <KpiCard
-              icon={<Wallet size={18} color={variance >= 0 ? brand.success : brand.danger} />}
-              iconBg={variance >= 0 ? brand.successBg : brand.dangerBg}
-              label="Cash variance"
-              value={formatNGN(variance)}
-              sub={variance >= 0 ? 'Within tolerance' : 'Needs review'}
-              valueColor={variance >= 0 ? brand.success : brand.danger}
-              onPress={() => router.push('/cash-ups' as never)}
-            />
+            {view.kpis.map((id) => {
+              const card = kpiFor(id, {
+                  revenue,
+                  variance,
+                  tripsToday,
+                  myTripsTotal,
+                  onDuty,
+                  passengersRecorded,
+                  activeFleet: activeBuses.active,
+                  totalVehicles: activeBuses.total,
+                  pendingCashUps: ds?.pending_cash_ups ?? 0,
+                  inMaintenance: ds?.vehicles_maintenance ?? 0,
+                  docsExpiring: ds?.documents_expiring_30d ?? 0,
+                  licensesExpiring: ds?.licenses_expiring_30d ?? 0,
+                  openIncidents: ds?.open_incidents ?? 0,
+                }, router);
+              return <KpiCard key={id} {...card} />;
+            })}
           </View>
 
-          {/* Phase 8 expanded KPIs — At a Glance */}
-          <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate, marginTop: 22, marginBottom: 10 }}>
-            At a glance
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>
-            <MiniKpi
-              icon={<UserCog size={14} color={brand.navy} />}
-              label="Drivers on duty"
-              value={ds?.drivers_on_duty ?? 0}
-              onPress={() => router.push('/drivers' as never)}
-            />
-            <MiniKpi
-              icon={<Wrench size={14} color="#B45309" />}
-              label="In maintenance"
-              value={ds?.vehicles_maintenance ?? 0}
-              valueColor={ds && ds.vehicles_maintenance > 0 ? '#B45309' : undefined}
-              onPress={() => router.push('/maintenance' as never)}
-            />
-            <MiniKpi
-              icon={<ClipboardList size={14} color="#B91C1C" />}
-              label="Docs expiring"
-              value={ds?.documents_expiring_30d ?? 0}
-              sub="30 days"
-              valueColor={ds && ds.documents_expiring_30d > 0 ? '#B91C1C' : undefined}
-              onPress={() => router.push('/vehicles' as never)}
-            />
-            <MiniKpi
-              icon={<FileText size={14} color="#B45309" />}
-              label="Licenses expiring"
-              value={ds?.licenses_expiring_30d ?? 0}
-              sub="30 days"
-              valueColor={ds && ds.licenses_expiring_30d > 0 ? '#B45309' : undefined}
-              onPress={() => router.push('/drivers' as never)}
-            />
-            <MiniKpi
-              icon={<AlertTriangle size={14} color="#B91C1C" />}
-              label="Open incidents"
-              value={ds?.open_incidents ?? 0}
-              valueColor={ds && ds.open_incidents > 0 ? '#B91C1C' : undefined}
-              onPress={() => router.push('/incidents' as never)}
-            />
-            <MiniKpi
-              icon={<ArrowRightLeft size={14} color={brand.navy} />}
-              label="Open transfers"
-              value={ds?.open_transfers ?? 0}
-              onPress={() => router.push('/transfers' as never)}
-            />
-            <MiniKpi
-              icon={<Wallet size={14} color="#B45309" />}
-              label="Pending cash-ups"
-              value={ds?.pending_cash_ups ?? 0}
-              valueColor={ds && ds.pending_cash_ups > 0 ? '#B45309' : undefined}
-              onPress={() => router.push('/cash-ups' as never)}
-            />
-            <MiniKpi
-              icon={<Users size={14} color={brand.navy} />}
-              label="Total vehicles"
-              value={activeBuses.total}
-              onPress={() => router.push('/vehicles' as never)}
-            />
-          </View>
+          {/* The small counters — also the role's own. */}
+          {view.glance.length > 0 ? (
+            <>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate, marginTop: 22, marginBottom: 10 }}>
+                At a glance
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 }}>
+                {view.glance.map((id) => {
+                  const counter = glanceFor(id, {
+                      driversOnDuty: ds?.drivers_on_duty ?? 0,
+                      inMaintenance: ds?.vehicles_maintenance ?? 0,
+                      docsExpiring: ds?.documents_expiring_30d ?? 0,
+                      licensesExpiring: ds?.licenses_expiring_30d ?? 0,
+                      openIncidents: ds?.open_incidents ?? 0,
+                      openTransfers: ds?.open_transfers ?? 0,
+                      pendingCashUps: ds?.pending_cash_ups ?? 0,
+                      totalVehicles: activeBuses.total,
+                    }, router);
+                  return <MiniKpi key={id} {...counter} />;
+                })}
+              </View>
+            </>
+          ) : null}
 
           {/* Live operations */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 22,
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate }}>
-              Live operations
-            </Text>
-            <Pressable onPress={() => router.push('/trips' as never)} hitSlop={8}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: brand.navy }}>
-                See all →
-              </Text>
-            </Pressable>
-          </View>
+          {view.liveOperations ? (
+            <>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: 22,
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate }}>
+                  {view.fleetMap ? 'Live operations' : 'Your trips'}
+                </Text>
+                <Pressable onPress={() => router.push('/trips' as never)} hitSlop={8}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: brand.navy }}>
+                    See all →
+                  </Text>
+                </Pressable>
+              </View>
 
-          {liveTrips.length === 0 ? (
-            <View
-              style={{
-                backgroundColor: '#fff',
-                borderRadius: 14,
-                padding: 20,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: brand.border,
-              }}
-            >
-              <Bus size={36} color={brand.yellow} />
-              <Text style={{ marginTop: 10, fontWeight: '700', color: brand.slate }}>
-                No trips yet
-              </Text>
-              <Text style={{ marginTop: 4, fontSize: 13, color: brand.muted, textAlign: 'center' }}>
-                Create a trip to start operations
-              </Text>
-            </View>
-          ) : (
-            liveTrips.map((t) => (
-              <TripLiveCard key={t.id} trip={t} onPress={() => router.push(`/trips/${t.id}` as never)} />
-            ))
-          )}
+              {liveTrips.length === 0 ? (
+                <View
+                  style={{
+                    backgroundColor: '#fff',
+                    borderRadius: 14,
+                    padding: 20,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: brand.border,
+                  }}
+                >
+                  <Bus size={36} color={brand.yellow} />
+                  <Text style={{ marginTop: 10, fontWeight: '700', color: brand.slate }}>
+                    No trips yet
+                  </Text>
+                  <Text style={{ marginTop: 4, fontSize: 13, color: brand.muted, textAlign: 'center' }}>
+                    {canCreateTrip
+                      ? 'Create a trip to start operations'
+                      : 'Trips assigned to you will appear here'}
+                  </Text>
+                </View>
+              ) : (
+                liveTrips.map((t) => (
+                  <TripLiveCard key={t.id} trip={t} onPress={() => router.push(`/trips/${t.id}` as never)} />
+                ))
+              )}
+            </>
+          ) : null}
 
           {/* Fleet map */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: 22,
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate }}>
-              Fleet map
-            </Text>
-            <Pressable onPress={() => setMapOpen(true)} hitSlop={8}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: brand.navy }}>
-                Open full map →
-              </Text>
-            </Pressable>
-          </View>
+          {view.fleetMap ? (
+            <>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginTop: 22,
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: brand.slate }}>
+                  Fleet map
+                </Text>
+                <Pressable onPress={() => setMapOpen(true)} hitSlop={8}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: brand.navy }}>
+                    Open full map →
+                  </Text>
+                </Pressable>
+              </View>
 
-          <Pressable
-            onPress={() => setMapOpen(true)}
-            style={{
-              backgroundColor: '#fff',
-              borderRadius: 14,
-              overflow: 'hidden',
-              borderWidth: 1,
-              borderColor: brand.border,
-              minHeight: 120,
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: 20,
-            }}
-          >
-            <MapPin size={28} color={brand.navy} />
-            <Text style={{ marginTop: 8, fontWeight: '600', color: brand.slate }}>
-              {mapPoints.length
-                ? `${mapPoints.length} branch location${mapPoints.length > 1 ? 's' : ''}`
-                : 'Tap to open map'}
-            </Text>
-            <Text style={{ marginTop: 4, fontSize: 12, color: brand.muted }}>
-              Branches & active routes
-            </Text>
-            <View
-              style={{
-                marginTop: 12,
-                backgroundColor: brand.navy,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 20,
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>
-                Open full map
-              </Text>
-            </View>
-          </Pressable>
+              <Pressable
+                onPress={() => setMapOpen(true)}
+                style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: brand.border,
+                  minHeight: 120,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: 20,
+                }}
+              >
+                <MapPin size={28} color={brand.navy} />
+                <Text style={{ marginTop: 8, fontWeight: '600', color: brand.slate }}>
+                  {mapPoints.length
+                    ? `${mapPoints.length} branch location${mapPoints.length > 1 ? 's' : ''}`
+                    : 'Tap to open map'}
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 12, color: brand.muted }}>
+                  Branches & active routes
+                </Text>
+                <View
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: brand.navy,
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>
+                    Open full map
+                  </Text>
+                </View>
+              </Pressable>
+            </>
+          ) : null}
 
           {/* Quick actions */}
           {(canCreateBranch || canCreateUser || canCreateVehicle || canCreateCrew || canCreateRoute) && (
@@ -484,6 +478,244 @@ export default function DashboardScreen() {
       </View>
     </ErrorBoundary>
   );
+}
+
+/** The figures the cards are built from. */
+interface KpiFigures {
+  revenue: number;
+  variance: number;
+  tripsToday: number;
+  myTripsTotal: number;
+  onDuty: number;
+  passengersRecorded: number;
+  activeFleet: number;
+  totalVehicles: number;
+  pendingCashUps: number;
+  inMaintenance: number;
+  docsExpiring: number;
+  licensesExpiring: number;
+  openIncidents: number;
+}
+
+/** The big card for one figure. */
+function kpiFor(
+  id: KpiId,
+  f: KpiFigures,
+  router: { push: (route: any) => void },
+): {
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  value: string;
+  sub: string;
+  valueColor?: string;
+  onPress?: () => void;
+} {
+  switch (id) {
+    case 'revenue':
+      return {
+        icon: <TrendingUp size={18} color={brand.success} />,
+        iconBg: brand.successBg,
+        label: 'Revenue',
+        value: formatNGN(f.revenue),
+        sub: 'Last 30 days',
+      };
+    case 'trips_today':
+      return {
+        icon: <Bus size={18} color={brand.navy} />,
+        iconBg: brand.yellowSoft,
+        label: 'Trips today',
+        value: String(f.tripsToday),
+        sub: 'Scheduled',
+      };
+    case 'active_fleet':
+      return {
+        icon: <Bus size={18} color={brand.info} />,
+        iconBg: brand.infoBg,
+        label: 'Active fleet',
+        value: `${f.activeFleet}/${f.totalVehicles || '—'}`,
+        sub: 'Available / on trip',
+      };
+    case 'cash_variance':
+      return {
+        icon: <Wallet size={18} color={f.variance >= 0 ? brand.success : brand.danger} />,
+        iconBg: f.variance >= 0 ? brand.successBg : brand.dangerBg,
+        label: 'Cash variance',
+        value: formatNGN(f.variance),
+        sub: f.variance >= 0 ? 'Within tolerance' : 'Needs review',
+        valueColor: f.variance >= 0 ? brand.success : brand.danger,
+        onPress: () => router.push('/cash-ups'),
+      };
+    case 'your_trips':
+      return {
+        icon: <Bus size={18} color={brand.navy} />,
+        iconBg: brand.yellowSoft,
+        label: 'Your trips',
+        value: String(f.myTripsTotal),
+        sub: 'Assigned to you',
+      };
+    case 'on_duty':
+      return {
+        icon: <UserCog size={18} color={f.onDuty > 0 ? brand.success : brand.muted} />,
+        iconBg: f.onDuty > 0 ? brand.successBg : brand.infoBg,
+        label: 'On duty',
+        value: f.onDuty > 0 ? 'Yes' : 'No',
+        sub: 'Boarding or on the road',
+        valueColor: f.onDuty > 0 ? brand.success : brand.muted,
+      };
+    case 'passengers_recorded':
+      return {
+        icon: <Users size={18} color={brand.navy} />,
+        iconBg: brand.infoBg,
+        label: 'Passengers recorded',
+        value: String(f.passengersRecorded),
+        sub: 'On your trips',
+      };
+    case 'open_incidents':
+      return {
+        icon: <AlertTriangle size={18} color="#B91C1C" />,
+        iconBg: brand.dangerBg,
+        label: 'Open incidents',
+        value: String(f.openIncidents),
+        sub: 'Not yet resolved',
+        valueColor: f.openIncidents > 0 ? '#B91C1C' : undefined,
+      };
+    case 'in_maintenance':
+      return {
+        icon: <Wrench size={18} color="#B45309" />,
+        iconBg: brand.yellowSoft,
+        label: 'In maintenance',
+        value: String(f.inMaintenance),
+        sub: 'Off the road',
+        valueColor: f.inMaintenance > 0 ? '#B45309' : undefined,
+      };
+    case 'docs_expiring':
+      return {
+        icon: <ClipboardList size={18} color="#B91C1C" />,
+        iconBg: brand.dangerBg,
+        label: 'Docs expiring',
+        value: String(f.docsExpiring),
+        sub: 'Within 30 days',
+        valueColor: f.docsExpiring > 0 ? '#B91C1C' : undefined,
+      };
+    case 'licenses_expiring':
+      return {
+        icon: <FileText size={18} color="#B45309" />,
+        iconBg: brand.yellowSoft,
+        label: 'Licenses expiring',
+        value: String(f.licensesExpiring),
+        sub: 'Within 30 days',
+        valueColor: f.licensesExpiring > 0 ? '#B45309' : undefined,
+      };
+    case 'pending_cashups':
+      return {
+        icon: <Wallet size={18} color="#B45309" />,
+        iconBg: brand.yellowSoft,
+        label: 'Pending cash-ups',
+        value: String(f.pendingCashUps),
+        sub: 'Awaiting approval',
+        valueColor: f.pendingCashUps > 0 ? '#B45309' : undefined,
+      };
+    default:
+      return {
+        icon: <Bus size={18} color={brand.navy} />,
+        iconBg: brand.infoBg,
+        label: 'Trips',
+        value: String(f.tripsToday),
+        sub: 'Today',
+      };
+  }
+}
+
+/** The small counter for one figure. */
+function glanceFor(
+  id: GlanceId,
+  f: {
+    driversOnDuty: number;
+    inMaintenance: number;
+    docsExpiring: number;
+    licensesExpiring: number;
+    openIncidents: number;
+    openTransfers: number;
+    pendingCashUps: number;
+    totalVehicles: number;
+  },
+  router: { push: (route: any) => void },
+): {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  sub?: string;
+  valueColor?: string;
+  onPress?: () => void;
+} {
+  switch (id) {
+    case 'drivers_on_duty':
+      return {
+        icon: <UserCog size={14} color={brand.navy} />,
+        label: 'Drivers on duty',
+        value: f.driversOnDuty,
+        onPress: () => router.push('/drivers'),
+      };
+    case 'in_maintenance':
+      return {
+        icon: <Wrench size={14} color="#B45309" />,
+        label: 'In maintenance',
+        value: f.inMaintenance,
+        valueColor: f.inMaintenance > 0 ? '#B45309' : undefined,
+        onPress: () => router.push('/maintenance'),
+      };
+    case 'docs_expiring':
+      return {
+        icon: <ClipboardList size={14} color="#B91C1C" />,
+        label: 'Docs expiring',
+        value: f.docsExpiring,
+        sub: '30 days',
+        valueColor: f.docsExpiring > 0 ? '#B91C1C' : undefined,
+        onPress: () => router.push('/vehicles'),
+      };
+    case 'licenses_expiring':
+      return {
+        icon: <FileText size={14} color="#B45309" />,
+        label: 'Licenses expiring',
+        value: f.licensesExpiring,
+        sub: '30 days',
+        valueColor: f.licensesExpiring > 0 ? '#B45309' : undefined,
+        onPress: () => router.push('/drivers'),
+      };
+    case 'open_incidents':
+      return {
+        icon: <AlertTriangle size={14} color="#B91C1C" />,
+        label: 'Open incidents',
+        value: f.openIncidents,
+        valueColor: f.openIncidents > 0 ? '#B91C1C' : undefined,
+        onPress: () => router.push('/incidents'),
+      };
+    case 'open_transfers':
+      return {
+        icon: <ArrowRightLeft size={14} color={brand.navy} />,
+        label: 'Open transfers',
+        value: f.openTransfers,
+        onPress: () => router.push('/transfers'),
+      };
+    case 'pending_cashups':
+      return {
+        icon: <Wallet size={14} color="#B45309" />,
+        label: 'Pending cash-ups',
+        value: f.pendingCashUps,
+        valueColor: f.pendingCashUps > 0 ? '#B45309' : undefined,
+        onPress: () => router.push('/cash-ups'),
+      };
+    case 'total_vehicles':
+      return {
+        icon: <Users size={14} color={brand.navy} />,
+        label: 'Total vehicles',
+        value: f.totalVehicles,
+        onPress: () => router.push('/vehicles'),
+      };
+    default:
+      return { icon: <Users size={14} color={brand.navy} />, label: 'Total', value: 0 };
+  }
 }
 
 function KpiCard({
@@ -547,9 +779,11 @@ function MiniKpi({
         minHeight: 72,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-        {icon}
-        <Text style={{ fontSize: 10, color: brand.muted, fontWeight: '500', marginLeft: 4, flex: 1 }} numberOfLines={1}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
+        <View style={{ paddingTop: 1 }}>{icon}</View>
+        {/* Two lines: the counters sit four across on a phone, and a
+            one-line label was truncated to "Driver…" and "Pendi…". */}
+        <Text style={{ fontSize: 10, color: brand.muted, fontWeight: '500', marginLeft: 4, flex: 1 }} numberOfLines={2}>
           {label}
         </Text>
       </View>
