@@ -56,10 +56,11 @@ export function useQrLookup() {
  * Aggregated dashboard counters — single call replaces 7 separate queries.
  * Refetches every 60 seconds when the dashboard is mounted.
  */
-export function useDashboardSummary() {
+export function useDashboardSummary(enabled = true) {
   return useQuery({
     queryKey: ['dashboard', 'summary'],
     queryFn: () => getSingle<DashboardSummary>('/dashboard/summary'),
+    enabled,
     refetchInterval: 60_000,
     staleTime: 30_000,
   });

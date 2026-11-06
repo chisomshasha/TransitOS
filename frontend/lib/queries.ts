@@ -91,8 +91,11 @@ export const qk = {
 };
 
 // ─── branches ────────────────────────────────────────────────────────────────
-export function useBranches(params?: Record<string, unknown>): UseQueryResult<Page<Branch>> {
-  return useQuery({ queryKey: qk.branches(params), queryFn: () => getPage<Branch>('/branches', params), staleTime: 30_000 });
+export function useBranches(
+  params?: Record<string, unknown>,
+  enabled = true,
+): UseQueryResult<Page<Branch>> {
+  return useQuery({ queryKey: qk.branches(params), queryFn: () => getPage<Branch>('/branches', params), enabled, staleTime: 30_000 });
 }
 export function useBranch(id: string): UseQueryResult<Branch> {
   return useQuery({ queryKey: qk.branch(id), queryFn: () => getSingle<Branch>(`/branches/${id}`), enabled: !!id });
@@ -145,8 +148,11 @@ export function useDeleteUser(): UseMutationResult<void, unknown, string> {
 }
 
 // ─── vehicles ────────────────────────────────────────────────────────────────
-export function useVehicles(params?: Record<string, unknown>): UseQueryResult<Page<Vehicle>> {
-  return useQuery({ queryKey: qk.vehicles(params), queryFn: () => getPage<Vehicle>('/vehicles', params), staleTime: 30_000 });
+export function useVehicles(
+  params?: Record<string, unknown>,
+  enabled = true,
+): UseQueryResult<Page<Vehicle>> {
+  return useQuery({ queryKey: qk.vehicles(params), queryFn: () => getPage<Vehicle>('/vehicles', params), enabled, staleTime: 30_000 });
 }
 export function useVehicle(id: string): UseQueryResult<Vehicle> {
   return useQuery({ queryKey: qk.vehicle(id), queryFn: () => getSingle<Vehicle>(`/vehicles/${id}`), enabled: !!id });
@@ -409,10 +415,14 @@ export function useUpdateMaintenance(id: string): UseMutationResult<MaintenanceR
 }
 
 // ─── reports (Sprint C originals) ────────────────────────────────────────────
-export function useOperationsSummary(params?: Record<string, unknown>): UseQueryResult<OperationsSummary> {
+export function useOperationsSummary(
+  params?: Record<string, unknown>,
+  enabled = true,
+): UseQueryResult<OperationsSummary> {
   return useQuery({
     queryKey: ['reports', 'summary', params ?? {}],
     queryFn: () => getSingle<OperationsSummary>('/reports/operations/summary', params),
+    enabled,
     staleTime: 30_000,
   });
 }
