@@ -69,6 +69,15 @@ DOC_TITLE = "Branch Onboarding & Operations Guide"
 DOC_VERSION = "v1.2.0"
 DOC_DATE = "3 November 2026"
 DOC_SUBTITLE = "Setting up a branch, and running trips, people, fleet and cash on TransitOS."
+DOC_EYEBROW = "CLIENT HANDOVER"
+#: The running head and the footer name the document.
+DOC_HEADER = "BRANCH ONBOARDING & OPERATIONS GUIDE"
+DOC_FOOTER = "Branch Onboarding & Operations Guide"
+DOC_COVER_NOTE = (
+    "This guide tells you what to do, in what order, and by whom. It is a companion"
+    " to the User Manual, which explains what every screen looks like. Every screen"
+    " path and button name in here has been checked against the shipping app."
+)
 
 COVER_MARGIN = "0"                 # Chromium clips to the content box: the cover needs 0
 BODY_MARGIN = "18mm 14mm 15mm 14mm"  # body pages get real page margins
@@ -480,7 +489,7 @@ def cover_markup(logo_uri: str) -> str:
     </div>
   </div>
   <div class="cover-mid">
-    <div class="cover-eyebrow">CLIENT HANDOVER</div>
+    <div class="cover-eyebrow">{DOC_EYEBROW}</div>
     <h1 class="cover-title">{DOC_TITLE}</h1>
     <div class="cover-rule"></div>
     <p class="cover-sub">{DOC_SUBTITLE}</p>
@@ -491,11 +500,7 @@ def cover_markup(logo_uri: str) -> str:
       <div><div class="k">AUDIENCE</div><div class="v">Head office, branch managers,<br>fleet and finance staff</div></div>
       <div><div class="k">ISSUED</div><div class="v">{DOC_DATE}<br>Version 1.0</div></div>
     </div>
-    <div class="cover-note">
-      This guide tells you what to do, in what order, and by whom. It is a companion
-      to the User Manual, which explains what every screen looks like. Every screen
-      path and button name in here has been checked against the shipping app.
-    </div>
+    <div class="cover-note">{DOC_COVER_NOTE}</div>
   </div>
 </section>"""
 
@@ -599,6 +604,32 @@ def pdf_page_texts(pdf_path: Path) -> list[str]:
     return out
 
 
+def pdf_page_lines(pdf_path: Path) -> list[list[str]]:
+    """Per page, the text of each visual line, normalised.
+
+    The collapsed page text cannot tell a heading from a phrase inside a
+    paragraph — a heading called "The crew" also occurs in the prose
+    beneath it, and the first match wins, which puts the wrong page
+    number in the contents. Grouping the words into their visual lines
+    lets a heading be matched exactly.
+    """
+    import pdfplumber
+
+    out: list[list[str]] = []
+    with pdfplumber.open(str(pdf_path)) as pdf:
+        for page in pdf.pages:
+            words = page.extract_words()
+            rows: dict[int, list] = {}
+            for w in words:
+                rows.setdefault(round(w["top"] / 3), []).append(w)
+            texts = []
+            for key in sorted(rows):
+                line = " ".join(w["text"] for w in sorted(rows[key], key=lambda w: w["x0"]))
+                texts.append(re.sub(r"\s+", " ", line).strip().lower())
+            out.append(texts)
+    return out
+
+
 def find_body_start(pages: list[str]) -> int:
     """1-based index of the first page of the body inside the guide PDF."""
     for idx, txt in enumerate(pages, start=1):
@@ -607,8 +638,13 @@ def find_body_start(pages: list[str]) -> int:
     raise RuntimeError("body-start marker not found in the rendered guide")
 
 
-def locate_headings(pages: list[str], entries: list[dict], body_start: int):
-    """Map each heading id to its 1-based page inside the guide PDF."""
+def locate_headings(pages: list[list[str]], entries: list[dict], body_start: int):
+    """Map each heading id to its 1-based page inside the guide PDF.
+
+    ``pages`` is the per-line text of each page (see ``pdf_page_lines``).
+    A heading is matched as a whole line, never as a phrase inside a
+    paragraph.
+    """
     page_map: dict[str, int] = {}
     unresolved: list[str] = []
 
@@ -623,8 +659,13 @@ def locate_headings(pages: list[str], entries: list[dict], body_start: int):
                 needles.append(needle)
         found = None
         for idx in range(body_start - 1, len(pages)):
-            if any(needle in pages[idx] for needle in needles):
-                found = idx + 1
+            if not needles:
+                continue
+            for line in pages[idx]:
+                if any(line == needle for needle in needles):
+                    found = idx + 1
+                    break
+            if found:
                 break
         if found is None:
             unresolved.append(e["text"])
@@ -671,7 +712,7 @@ def merge_cover_and_stamp(cover_pdf: Path, guide_pdf: Path, out_pdf: Path,
         if i >= cover_pages:
             c.setFont("Helvetica", 7.2)
             c.setFillColor(HexColor(MUTED))
-            c.drawString(MARGIN_L, HEADER_BASELINE, "TRANSITOS  \u00b7  BRANCH ONBOARDING & OPERATIONS GUIDE")
+            c.drawString(MARGIN_L, HEADER_BASELINE, f"TRANSITOS  \u00b7  {DOC_HEADER}")
             c.setFont("Helvetica-Bold", 7.2)
             c.setFillColor(HexColor(NAVY))
             c.drawRightString(PAGE_W - MARGIN_R, HEADER_BASELINE, f"{DOC_VERSION}  \u00b7  {DOC_DATE}")
@@ -722,18 +763,47 @@ def add_bookmarks(pdf_path: Path, items: list[tuple[str, int]]) -> None:
 # ──────────────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Build the TransitOS client guide PDF.")
+    # The cover text is module-level so the HTML builders can read it.
+    global DOC_TITLE, DOC_SUBTITLE, DOC_EYEBROW, DOC_COVER_NOTE, DOC_VERSION, DOC_DATE
+    global DOC_HEADER, DOC_FOOTER
+    ap = argparse.ArgumentParser(
+        description="Build a branded TransitOS client PDF from Markdown."
+    )
     ap.add_argument("--out-dir", default="/workspace/output/guide-build")
     ap.add_argument("--pdf", default="/workspace/output/TransitOS-Client-Onboarding-Guide.pdf")
+    ap.add_argument(
+        "--markdown",
+        default=str(MARKDOWN),
+        help="the Markdown source (default: the onboarding guide)",
+    )
+    ap.add_argument("--title", default=DOC_TITLE, help="the cover title")
+    ap.add_argument("--subtitle", default=DOC_SUBTITLE, help="the cover subtitle")
+    ap.add_argument("--eyebrow", default=DOC_EYEBROW, help="the small cover label")
+    ap.add_argument("--cover-note", default=DOC_COVER_NOTE, help="the cover footnote")
+    ap.add_argument("--version", default=DOC_VERSION, help="the version on the cover")
+    ap.add_argument("--date", default=DOC_DATE, help="the issue date on the cover")
+    ap.add_argument("--header", default=DOC_HEADER, help="the running head")
+    ap.add_argument("--footer", default=DOC_FOOTER, help="the footer")
     args = ap.parse_args()
+
+    # The cover text is module-level so the HTML builders can read it.
+    DOC_TITLE = args.title
+    DOC_SUBTITLE = args.subtitle
+    DOC_EYEBROW = args.eyebrow
+    DOC_COVER_NOTE = args.cover_note
+    DOC_VERSION = args.version
+    DOC_DATE = args.date
+    DOC_HEADER = args.header
+    DOC_FOOTER = args.footer
+    source = Path(args.markdown)
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     final_pdf = Path(args.pdf)
     final_pdf.parent.mkdir(parents=True, exist_ok=True)
 
-    print("· reading source")
-    src = MARKDOWN.read_text(encoding="utf-8")
+    print(f"· reading source ({source.name})")
+    src = source.read_text(encoding="utf-8")
     body_html, entries = parse_markdown(src)
     print(f"  {len(entries)} headings, {len(body_html) // 1024} KB of HTML")
     logo_uri = logo_data_uri(LOGO)
@@ -749,7 +819,8 @@ def main() -> int:
 
     pages = pdf_page_texts(guide_pdf)
     body_start = find_body_start(pages)
-    page_map, unresolved = locate_headings(pages, entries, body_start)
+    lines = pdf_page_lines(guide_pdf)
+    page_map, unresolved = locate_headings(lines, entries, body_start)
     if unresolved:
         print(f"  ! could not locate {len(unresolved)} heading(s): {unresolved}")
 
@@ -767,7 +838,7 @@ def main() -> int:
     if body_start2 != body_start:
         print(f"  ! body start moved {body_start} -> {body_start2}; re-resolving")
         body_start = body_start2
-        page_map, unresolved = locate_headings(pages2, entries, body_start)
+        page_map, unresolved = locate_headings(pdf_page_lines(guide_pdf), entries, body_start)
         absolute = {e["id"]: page_map[e["id"]] + 1 for e in entries}
         guide_html.write_text(build_guide_html(body_html, entries, absolute), encoding="utf-8")
         render(guide_html, guide_pdf, BODY_MARGIN)
@@ -783,9 +854,15 @@ def main() -> int:
     print("· merging")
     total = merge_cover_and_stamp(
         cover_pdf, guide_pdf, final_pdf,
-        "TransitOS  \u00b7  Branch Onboarding & Operations Guide",
+        f"TransitOS  \u00b7  {DOC_FOOTER}",
     )
-    marks = [(e["text"], absolute[e["id"]]) for e in entries if e["level"] == 1]
+    # Bookmarks for the top-level sections. A document whose parts are
+    # H1 gets those; one whose parts are H2 (the title takes the H1) gets
+    # the H2s instead, so the reader always has a navigation tree.
+    top = [e for e in entries if e["level"] == 1] or [
+        e for e in entries if e["level"] == 2
+    ]
+    marks = [(e["text"], absolute[e["id"]]) for e in top]
     add_bookmarks(final_pdf, marks)
 
     print(f"\n✓ {final_pdf}")
