@@ -132,6 +132,31 @@ with a seeded database and a real session token. Findings it produced:
   notifications, role_permissions, vehicle_documents, vehicle_transfers
   and more.
 
+### Role design & operating model
+
+`docs/ROLE_DESIGN.md` (and the rendered
+`docs/TransitOS-Role-Design.pdf`) is the document that explains the
+*design*: why there are ten roles, what each one is accountable for,
+what it can and cannot see, and how the trips, manifests, cash-ups and
+settlements combine into one view of the business.
+
+It is generated from the same source of truth as the app — the
+permission matrix, the role scopes and the screen map — and
+`backend/app/tests/test_role_design_doc.py` fails the build if the
+document and the code disagree.
+
+Render it with the same pipeline as the other client documents:
+
+```bash
+python3 tools/docs/build_client_guide_pdf.py \
+  --markdown docs/ROLE_DESIGN.md \
+  --title "Role Design & Operating Model" \
+  --eyebrow "SYSTEM DESIGN" \
+  --header "ROLE DESIGN & OPERATING MODEL" \
+  --footer "Role Design & Operating Model" \
+  --pdf /workspace/output/TransitOS-Role-Design.pdf
+```
+
 ### User manual
 
 `docs/USER_MANUAL.md` — and the distributable
@@ -407,10 +432,14 @@ The app receives JavaScript and asset fixes over the air, so a bug fix
 does not need a new APK and the crew does not reinstall anything.
 
 ```bash
-cd frontend
-npm run update:preview       # internal testers
-npm run update:production    # the field
+# from the repository root — installs Node and the EAS CLI if missing,
+# and checks you are signed in as the account that owns the project
+bash backend/scripts/publish_update.sh preview    "What it fixes"
+bash backend/scripts/publish_update.sh production "What it fixes"
 ```
+
+The npm scripts (`cd frontend && npm run update:production`) do the
+same thing if you already have Node and the EAS CLI.
 
 `expo-updates` is installed, the update server and the runtime version
 are configured, and the `preview` / `production` / `development` channels
