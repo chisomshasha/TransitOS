@@ -38,22 +38,51 @@ new APK — but until now *every* fix did.
 
 ## 2 · Publishing a fix
 
-From `frontend/`, with the EAS CLI logged in:
+From the repository root:
 
 ```bash
-eas login                      # once per machine
-cd frontend
-
-# a fix for the internal testers
-npm run update:preview
-
-# a fix for the field
-npm run update:production
+bash backend/scripts/publish_update.sh production "Fix the cash-up variance display"
 ```
 
-Both scripts run `eas update --channel <name>`. The CLI asks for a
-short message describing the change — that message is what the team
-sees in the EAS dashboard, so write it like a commit message.
+That one command checks everything that usually goes wrong: it makes
+sure **Node** and the **EAS CLI** are installed (a Codespace created
+before `.devcontainer/` existed has neither — `npm: command not
+found`), checks that you are signed in **as the account that owns the
+project**, and only then publishes.
+
+It prints the update-group id, which is what you need for the staged
+rollout in §6.
+
+> **If you have run the commands by hand and hit one of these**, they
+> are the two things the script exists to prevent:
+>
+> | What you see | Why | What to do |
+> |---|---|---|
+> | `bash: npm: command not found` | the machine has no Node — a Codespace created before `.devcontainer/` existed | `bash backend/scripts/publish_update.sh` installs it |
+> | `bash: eas: command not found` | the EAS CLI is not installed | the same script installs it |
+> | `project not found` when publishing | you are signed in as the wrong Expo account | `eas logout && eas login` as the account that owns the project (`chisomshasha`) |
+
+**First time on a machine?** Sign in once:
+
+```bash
+eas login
+```
+
+It prints a URL and a code — open the URL, paste the code, and come
+back. `eas login` works in a headless terminal; nothing needs a
+browser on the machine itself.
+
+If you prefer to drive the CLI yourself, the npm scripts are there:
+
+```bash
+cd frontend
+npm run update:preview       # internal testers
+npm run update:production    # the field
+```
+
+Both run `eas update --channel <name>`. The CLI asks for a short
+message describing the change — that message is what the team sees in
+the EAS dashboard, so write it like a commit message.
 
 The full command, if you want it explicitly:
 

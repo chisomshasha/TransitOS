@@ -609,6 +609,38 @@ caught a real regression during this work: rebuilding the card
 catalogue dropped the dashboard's navigation targets, and **/drivers**
 became unreachable from anywhere.
 
+### 1.22 — The publish path did not work on a Codespace without Node (P1)
+
+The over-the-air update work was delivered and then found not to run:
+in a Codespace created before ``.devcontainer/`` existed there is no
+Node and no EAS CLI, so the documented commands answered
+
+```
+bash: npm: command not found
+bash: eas: command not found
+```
+
+The root cause was in the bootstrap script itself:
+``setup_codespace.sh`` installed Python and MongoDB and nothing else,
+so a machine it had just prepared could not build the app or publish
+an update to it.
+
+Three things are now true:
+
+* ``setup_codespace.sh`` installs **Node 20** (from NodeSource) and the
+  **EAS CLI** when they are missing, and says so plainly when it
+  cannot.
+* ``backend/scripts/publish_update.sh`` is the documented way to
+  publish. It installs whatever is missing, checks that you are signed
+  in **as the account that owns the project** — publishing as the
+  wrong one fails with a "project not found" that looks like a broken
+  project — and prints the update-group id needed for a staged
+  rollout.
+* ``backend/app/tests/test_publish_update_path.py`` (7 tests) makes
+  sure the script exists, is executable, parses, and is still the path
+  the OTA guide, the pre-build checklist and the README point at. CI
+  runs ``bash -n`` over both shell scripts.
+
 ## 2 · The gap that hid most of the above
 
 The static contract checker compared the backend's required body fields

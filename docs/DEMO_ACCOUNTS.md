@@ -8,14 +8,54 @@ bash backend/scripts/setup_codespace.sh
 ```
 
 That single command does everything: checks Python, creates `.venv`,
-installs the backend requirements, starts MongoDB (Docker — Codespaces
-have it), writes `backend/.env`, creates the indexes, and **seeds a
-demo account for every role**. It prints the logins when it finishes.
+installs the backend requirements, starts MongoDB, writes
+`backend/.env`, creates the indexes, and **seeds a demo account for
+every role**. It prints the logins when it finishes.
 
 It works in a **default** Codespace — it does not need `.devcontainer/`,
 so it does not matter when your Codespace was created. Safe to re-run.
+If the Codespace has no Docker, the script downloads the official
+MongoDB build and runs it directly; no Docker and no root needed.
 
-To seed only, once MongoDB is up:
+---
+
+## The database that matters is Railway's
+
+**A MongoDB started on the Codespace is a throwaway.** It is where you
+develop against — it is **not** the database the deployed app uses.
+
+The app in the field reads and writes the database Railway hosts. So
+when you want the demo accounts to appear in the deployed app, seed
+*that* database:
+
+### Option 1 — from inside the Railway service (recommended)
+
+Railway dashboard → your API service → the **shell** tab, then:
+
+```bash
+cd /app && python -m scripts.seed
+```
+
+`MONGODB_URL` is already set inside the service, so this reaches the
+real database with no connection string and no Docker. It prints the
+logins when it finishes.
+
+### Option 2 — over HTTP, from anywhere
+
+```bash
+curl -X POST https://<your-api>/admin/seed \
+  -H "X-Admin-Token: <your ADMIN_BOOTSTRAP_TOKEN>"
+```
+
+This seeds the same accounts and the same demo data. It can only run
+**once** — the endpoint locks itself after the first success — so unset
+`ADMIN_BOOTSTRAP_TOKEN` in Railway afterwards.
+
+Both paths create the same ten accounts, because they read the same
+list (`backend/app/demo_accounts.py`). A test proves they cannot drift
+apart.
+
+### For local work only
 
 ```bash
 cd backend && ../.venv/bin/python -m scripts.seed

@@ -326,8 +326,28 @@ uvicorn app.main:app --reload # or deploy to Railway with the Dockerfile
 
 # 2 — deploy the backend, then set the real URL in all four places (§1.1)
 
-# 3 — seed the database (one shot, then unset ADMIN_BOOTSTRAP_TOKEN)
-curl -X POST https://<your-api>/admin/seed -H "X-Admin-Token: <secret>"
+# 3 — seed the database
+#
+# The database Railway hosts is the one the app uses, so seed that one.
+# From the Railway dashboard: your API service -> the shell tab, then
+#
+#     cd /app && python -m scripts.seed
+#
+# That seeds all ten demo accounts plus the demo branch, vehicle,
+# driver, conductor and route. It needs no Docker and no connection
+# string from your machine — MONGODB_URL is already set inside the
+# service.
+#
+# The HTTP bootstrap does the same thing from anywhere:
+#
+#     curl -X POST https://<your-api>/admin/seed \\
+#       -H "X-Admin-Token: <secret>"
+#
+# It can only run once — the endpoint locks itself after the first
+# success — so unset ADMIN_BOOTSTRAP_TOKEN afterwards.
+#
+# For LOCAL work only, `bash backend/scripts/setup_codespace.sh` starts a
+# throwaway MongoDB and seeds that. It is not the deployed database.
 
 # 4 — front end
 cd ../frontend
@@ -346,9 +366,18 @@ eas build --platform android --profile preview
 eas build --platform android --profile production
 
 # 7 — after that, a JavaScript fix needs no APK at all
-npm run update:preview                         # internal testers
-npm run update:production                      # the field
+bash backend/scripts/publish_update.sh preview "What it fixes"    # testers
+bash backend/scripts/publish_update.sh production "What it fixes"  # the field
 ```
+
+> **The publish script installs what it needs.** A Codespace created
+> before `.devcontainer/` existed has no Node and no EAS CLI, so
+> `npm run update:production` fails with *npm: command not found* and
+> `eas update` fails with *eas: command not found*. Use
+> `backend/scripts/publish_update.sh` instead — it installs Node 20 and
+> the EAS CLI if they are missing, checks you are signed in as the
+> account that owns the project, and prints the update-group id you
+> need for a staged rollout.
 
 > **Publish the first update to `preview` and try it on a real phone
 > before you put it on `production`.** Force-close the app and reopen

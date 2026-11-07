@@ -4,6 +4,8 @@
 finance staff.
 **Applies to:** TransitOS v1.2.0 (Expo app + TransitOS API).
 **Date:** 3 November 2026.
+**Companion:** *Role Design & Operating Model* — why the app is shaped
+the way it is, and what each role is accountable for.
 
 > You already have the *User Manual*, which explains what every screen
 > looks like. This document is the other half: **what to do, in what
