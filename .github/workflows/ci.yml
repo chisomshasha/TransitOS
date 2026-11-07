@@ -86,6 +86,16 @@ jobs:
         working-directory: backend
         run: python ../tools/contract/check.py
 
+      - name: Guard — the shell scripts parse
+        # The Codespace bootstrap and the over-the-air publish script are
+        # shell. A syntax error in either is found at the worst moment —
+        # mid-onboarding, or when a fix is waiting to go out. `bash -n`
+        # parses without running anything.
+        working-directory: backend
+        run: |
+          bash -n scripts/setup_codespace.sh
+          bash -n scripts/publish_update.sh
+
       - name: Guard — the over-the-air update configuration
         # An update that never arrives fails silently: no error, no
         # crash, the app keeps running the old code while everyone
